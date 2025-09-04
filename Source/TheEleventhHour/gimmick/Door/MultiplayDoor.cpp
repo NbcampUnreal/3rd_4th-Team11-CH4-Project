@@ -5,6 +5,7 @@
 #include "Components/BoxComponent.h"
 #include "Components/TimelineComponent.h"
 #include "Curves/CurveFloat.h"
+
 // Sets default values
 AMultiplayDoor::AMultiplayDoor()
 {
@@ -13,7 +14,7 @@ AMultiplayDoor::AMultiplayDoor()
 
    SceneComponent = CreateDefaultSubobject<USceneComponent>("SceneComponent");
    SetRootComponent(SceneComponent);
-   
+
    DoorMesh = CreateDefaultSubobject<UStaticMeshComponent>("DoorMesh");
    DoorMesh->SetupAttachment(RootComponent);
 
@@ -30,12 +31,14 @@ void AMultiplayDoor::BeginPlay()
    if (DoorTimeLine)
    {
       FOnTimelineFloat Progress;
-
       Progress.BindDynamic(this,&AMultiplayDoor::HandleTimelineProgress);
 
+      FOnTimelineEvent TimelineEventFinished;
+      TimelineEventFinished.BindDynamic(this,&AMultiplayDoor::OnDoorInterActionFinished);
       if (OpenCurve)
       {
          DoorTimeLine->AddInterpFloat(OpenCurve,Progress);
+         DoorTimeLine->SetTimelineFinishedFunc(TimelineEventFinished);
          DoorTimeLine->SetLooping(false);
       }
    }
@@ -47,6 +50,11 @@ void AMultiplayDoor::HandleTimelineProgress(float Alpha)
    DoorMesh->SetRelativeRotation(NewRotation);
 }
 
+void AMultiplayDoor::OnDoorInterActionFinished()
+{
+   bIsDoorMoving = false;
+}
+
 void AMultiplayDoor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
    Super::EndPlay(EndPlayReason);
@@ -54,9 +62,9 @@ void AMultiplayDoor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AMultiplayDoor::OpenDoor()
 {
-   if (bIsOpen||bIsOpening) return;
+   if (bIsOpen||bIsDoorMoving) return;
 
-   bIsOpening = true;
+   bIsDoorMoving= true;
    TargetLocalRotation = InitialLocalRotation + FRotator(0.0f,OpenYawDelta,0.0f);
 
    if (DoorTimeLine)
@@ -66,12 +74,13 @@ void AMultiplayDoor::OpenDoor()
    }
    
    bIsOpen = true;
-   bIsOpening = false;
 }
 
 void AMultiplayDoor::CloseDoor()
 {
-   if (!bIsOpen) return;
+   if (!bIsOpen||bIsDoorMoving) return;
+
+   bIsDoorMoving = true;
    
    if (DoorTimeLine)
    {
@@ -82,7 +91,7 @@ void AMultiplayDoor::CloseDoor()
 
 void AMultiplayDoor::InterActionDoor()
 {
-   if (bIsOpening) return;
+   if (bIsDoorMoving) return;
    
    if (!bIsOpen)
       OpenDoor();

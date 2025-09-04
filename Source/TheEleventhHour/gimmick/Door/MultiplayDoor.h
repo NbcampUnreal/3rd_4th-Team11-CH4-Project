@@ -22,12 +22,15 @@ public:
 
 protected:
 
+
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UFUNCTION()
 	void HandleTimelineProgress(float Alpha);
-	
+
+	UFUNCTION()
+	void OnDoorInterActionFinished();
 	
 	//기본 컴포넌트
 	UPROPERTY(VisibleAnywhere,BlueprintReadWrite,Category="Multiplay Door")
@@ -66,7 +69,7 @@ public:
 	//목표 로테이터
 	FRotator TargetLocalRotation;
 	
-	bool bIsOpening = false;
+	bool bIsDoorMoving = false;
 	bool bIsOpen = false;
 	
 };

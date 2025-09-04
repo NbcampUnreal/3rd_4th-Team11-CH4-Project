@@ -75,6 +75,7 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(CrouchAction, ETriggerEvent::Started, this, &ThisClass::ToggleCrouch);
 	EIC->BindAction(WalkAction, ETriggerEvent::Started, this, &ThisClass::Walk);
 	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::Attack);
+	EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &ThisClass::StartInteraction);
 }
 // ------------------
 
@@ -190,11 +191,16 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 	}
 }
 
+void AEHSurvivorCharacter::EndInteraction(const FInputActionValue& value)
+{
+	
+}
 // ------------------
 
 // -------걷기-------
 void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
 {
+	bIsInteracting = false;
 	if (bIsCrouching)
 	{
 		return;
@@ -203,6 +209,7 @@ void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
 	bIsWalking = !bIsWalking;
 	GetCharacterMovement()->MaxWalkSpeed = bIsWalking ? 400.f : 600.f;
 }
+
 // ------------------
 
 void AEHSurvivorCharacter::Attack(const FInputActionValue& value)
