@@ -11,7 +11,9 @@ public class TheEleventhHour : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
-
+		
+		PublicIncludePaths.AddRange(new string[] { "TheEleventhHour"  });
+	
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 		
