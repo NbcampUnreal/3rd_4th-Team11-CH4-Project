@@ -22,17 +22,14 @@ public:
 
 protected:
 
-#pragma region callbacks
+
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UFUNCTION()
 	void HandleTimelineProgress(float Alpha);
-	UFUNCTION()
-	void HandleFinished();
-#pragma endregion callbacks
-
-#pragma region Components
+	
+	
 	//기본 컴포넌트
 	UPROPERTY(VisibleAnywhere,BlueprintReadWrite,Category="Multiplay Door")
 	TObjectPtr<USceneComponent> SceneComponent;
@@ -49,13 +46,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly,Category="Multiplay Door|TimeLine")
 	TObjectPtr<UCurveFloat> OpenCurve;
 
-   
-#pragma endregion Components
-
-#pragma region Overlap
+	
 	UFUNCTION()
 	void OnDoorBeginOverlap(AActor* ThisActor, AActor* OtherActor);
-#pragma endregion Overlap
+
+	UFUNCTION()
+	void OnDoorEndOverlap(AActor* ThisActor, AActor* OtherActor);
+
    
 public:   
 	virtual void Tick(float DeltaTime) override;
@@ -63,14 +60,16 @@ public:
 	//문이 열리는데 걸리는 시간
 	UPROPERTY(EditAnywhere, BlueprintReadWrite,Category="Multiplay Door|Timeline")
 	float OpenDuration =0.5f;
+	
+	//목표 각도(문이 열리는 각도)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite,Category="Multiplay Door|Timeline")
+	float OpenYawDelta = 90.0f;
+	
 	//초기 로테이터
 	FRotator InitialLocalRotation;
 	//목표 로테이터
 	FRotator TargetLocalRotation;
-	//목표 각도(문이 열리는 각도)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite,Category="Multiplay Door|Timeline")
-	float OpenYawDelta = 90.0f;
-
+	
 	bool bIsOpening = false;
 	bool bIsOpen = false;
 };

@@ -34,6 +34,11 @@ void AMultiplayDoor::BeginPlay()
       OnActorBeginOverlap.AddDynamic(this,&AMultiplayDoor::OnDoorBeginOverlap);
    }
 
+   if (!OnActorEndOverlap.IsAlreadyBound(this,&AMultiplayDoor::OnDoorEndOverlap))
+   {
+      OnActorEndOverlap.AddDynamic(this,&AMultiplayDoor::OnDoorEndOverlap);
+   }
+   
    InitialLocalRotation = DoorMesh->GetRelativeRotation();
    TargetLocalRotation = InitialLocalRotation + FRotator(0.0f,OpenYawDelta,0.0f);
 
@@ -48,10 +53,6 @@ void AMultiplayDoor::BeginPlay()
          DoorTimeLine->AddInterpFloat(OpenCurve,Progress);
          DoorTimeLine->SetLooping(false);
       }
-
-      FOnTimelineEvent Finished;
-      Finished.BindUFunction(this,FName("HandleFinished"));
-      DoorTimeLine->SetTimelineFinishedFunc(Finished);
    }
 }
 
@@ -63,6 +64,11 @@ void AMultiplayDoor::EndPlay(const EEndPlayReason::Type EndPlayReason)
    {
       OnActorBeginOverlap.RemoveDynamic(this,&AMultiplayDoor::OnDoorBeginOverlap);
    }
+
+   if (OnActorEndOverlap.IsAlreadyBound(this,&AMultiplayDoor::OnDoorEndOverlap))
+   {
+      OnActorEndOverlap.RemoveDynamic(this,&AMultiplayDoor::OnDoorEndOverlap);
+   }
    
 }
 
@@ -72,25 +78,34 @@ void AMultiplayDoor::HandleTimelineProgress(float Alpha)
    DoorMesh->SetRelativeRotation(NewRotation);
 }
 
-void AMultiplayDoor::HandleFinished()
-{
-   bIsOpening = false;
-   bIsOpen = true;
-}
-
 void AMultiplayDoor::OnDoorBeginOverlap(AActor* ThisActor, AActor* OtherActor)
 {
    if (!OtherActor||OtherActor==this) return;
+   //열려있거나 열리는 도중이면 리턴 (다른 액터가 들어와도 그대로 리턴됨)
    if (bIsOpen||bIsOpening) return;
 
    bIsOpening = true;
-   InitialLocalRotation = DoorMesh->GetRelativeRotation();
    TargetLocalRotation = InitialLocalRotation + FRotator(0.0f,OpenYawDelta,0.0f);
 
    if (DoorTimeLine)
    {
+      DoorTimeLine->SetPlayRate(1/OpenDuration);
       DoorTimeLine->PlayFromStart();
    }
+   
+   bIsOpen = true;
+   bIsOpening = false;
+}
+
+void AMultiplayDoor::OnDoorEndOverlap(AActor* ThisActor, AActor* OtherActor)
+{
+   if (!bIsOpen) return;
+   
+   if (DoorTimeLine)
+   {
+      DoorTimeLine->ReverseFromEnd();
+   }
+   bIsOpen=false;
 }
 
 void AMultiplayDoor::Tick(float DeltaTime)
