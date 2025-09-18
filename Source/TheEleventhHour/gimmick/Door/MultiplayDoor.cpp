@@ -9,15 +9,10 @@
 AMultiplayDoor::AMultiplayDoor()
 {
     // Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-   PrimaryActorTick.bCanEverTick = true;
+   PrimaryActorTick.bCanEverTick = false;
 
    SceneComponent = CreateDefaultSubobject<USceneComponent>("SceneComponent");
    SetRootComponent(SceneComponent);
-
-   BoxComponent = CreateDefaultSubobject<UBoxComponent>("FrontBoxComponent");
-   BoxComponent->SetCollisionProfileName(TEXT("Trigger"));
-   BoxComponent->SetGenerateOverlapEvents(true);
-   BoxComponent->SetupAttachment(RootComponent);
    
    DoorMesh = CreateDefaultSubobject<UStaticMeshComponent>("DoorMesh");
    DoorMesh->SetupAttachment(RootComponent);
@@ -28,16 +23,6 @@ AMultiplayDoor::AMultiplayDoor()
 void AMultiplayDoor::BeginPlay()
 {
    Super::BeginPlay();
-
-   if (!OnActorBeginOverlap.IsAlreadyBound(this,&AMultiplayDoor::OnDoorBeginOverlap))
-   {
-      OnActorBeginOverlap.AddDynamic(this,&AMultiplayDoor::OnDoorBeginOverlap);
-   }
-
-   if (!OnActorEndOverlap.IsAlreadyBound(this,&AMultiplayDoor::OnDoorEndOverlap))
-   {
-      OnActorEndOverlap.AddDynamic(this,&AMultiplayDoor::OnDoorEndOverlap);
-   }
    
    InitialLocalRotation = DoorMesh->GetRelativeRotation();
    TargetLocalRotation = InitialLocalRotation + FRotator(0.0f,OpenYawDelta,0.0f);
@@ -46,7 +31,7 @@ void AMultiplayDoor::BeginPlay()
    {
       FOnTimelineFloat Progress;
 
-      Progress.BindUFunction(this,FName("HandleTimelineProgress"));
+      Progress.BindDynamic(this,&AMultiplayDoor::HandleTimelineProgress);
 
       if (OpenCurve)
       {
@@ -56,32 +41,19 @@ void AMultiplayDoor::BeginPlay()
    }
 }
 
-void AMultiplayDoor::EndPlay(const EEndPlayReason::Type EndPlayReason)
-{
-   Super::EndPlay(EndPlayReason);
-
-   if (OnActorBeginOverlap.IsAlreadyBound(this,&AMultiplayDoor::OnDoorBeginOverlap))
-   {
-      OnActorBeginOverlap.RemoveDynamic(this,&AMultiplayDoor::OnDoorBeginOverlap);
-   }
-
-   if (OnActorEndOverlap.IsAlreadyBound(this,&AMultiplayDoor::OnDoorEndOverlap))
-   {
-      OnActorEndOverlap.RemoveDynamic(this,&AMultiplayDoor::OnDoorEndOverlap);
-   }
-   
-}
-
 void AMultiplayDoor::HandleTimelineProgress(float Alpha)
 {
    const FRotator NewRotation = FMath::Lerp(InitialLocalRotation,TargetLocalRotation,Alpha);
    DoorMesh->SetRelativeRotation(NewRotation);
 }
 
-void AMultiplayDoor::OnDoorBeginOverlap(AActor* ThisActor, AActor* OtherActor)
+void AMultiplayDoor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-   if (!OtherActor||OtherActor==this) return;
-   //열려있거나 열리는 도중이면 리턴 (다른 액터가 들어와도 그대로 리턴됨)
+   Super::EndPlay(EndPlayReason);
+}
+
+void AMultiplayDoor::OpenDoor()
+{
    if (bIsOpen||bIsOpening) return;
 
    bIsOpening = true;
@@ -97,7 +69,7 @@ void AMultiplayDoor::OnDoorBeginOverlap(AActor* ThisActor, AActor* OtherActor)
    bIsOpening = false;
 }
 
-void AMultiplayDoor::OnDoorEndOverlap(AActor* ThisActor, AActor* OtherActor)
+void AMultiplayDoor::CloseDoor()
 {
    if (!bIsOpen) return;
    
@@ -108,8 +80,12 @@ void AMultiplayDoor::OnDoorEndOverlap(AActor* ThisActor, AActor* OtherActor)
    bIsOpen=false;
 }
 
-void AMultiplayDoor::Tick(float DeltaTime)
+void AMultiplayDoor::InterActionDoor()
 {
-   Super::Tick(DeltaTime);
+   if (bIsOpening) return;
    
+   if (!bIsOpen)
+      OpenDoor();
+   else
+      CloseDoor();
 }

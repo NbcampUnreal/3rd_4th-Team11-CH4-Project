@@ -6,8 +6,10 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "gimmick/Door/MultiplayDoor.h"
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
+	:InterActionLength(300.0f)
 {
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -33,6 +35,8 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 void AEHSurvivorCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	// 상호작용 거리 오프셋 조절
+	InterActionLength += SpringArm->TargetArmLength;
 
 	if (SpringArm)
 	{
@@ -68,6 +72,7 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
 	EIC->BindAction(LookAction, ETriggerEvent::Triggered, this, &ThisClass::Look);
 	EIC->BindAction(CrouchAction, ETriggerEvent::Started, this, &ThisClass::ToggleCrouch);
+	EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &ThisClass::StartInteraction);
 }
 // ------------------
 
@@ -155,10 +160,30 @@ void AEHSurvivorCharacter::EndCross(const FInputActionValue& value)
 void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 {
 	bIsInteracting = true;
+
+	const FVector LineTraceStart = CameraComp->GetComponentLocation();
+	const FVector LineTraceEnd = LineTraceStart + FVector(CameraComp->GetForwardVector()*InterActionLength);
+
+	FHitResult HitResult;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	if (GetWorld()->LineTraceSingleByChannel(HitResult,LineTraceStart,LineTraceEnd,ECC_Visibility,Params))
+	{
+		AActor* HitActor = HitResult.GetActor();
+		if (HitActor)
+		{
+			UE_LOG(LogTemp,Log,TEXT("%s"),*HitActor->GetName());
+			if (AMultiplayDoor* Door = Cast<AMultiplayDoor>(HitActor))
+			{
+				Door->InterActionDoor();
+			}
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp,Log,TEXT("LineTraceMiss"));
+	}
 }
 
-void AEHSurvivorCharacter::EndInteraction(const FInputActionValue& value)
-{
-	bIsInteracting = false;
-}
 // ------------------

@@ -66,7 +66,6 @@ protected:
 	void EndCross(const FInputActionValue& value);
 		
 	void StartInteraction(const FInputActionValue& value);
-	void EndInteraction(const FInputActionValue& value);
 	// --------------------
 
 	// ------ 상태관리 ------
@@ -76,6 +75,9 @@ protected:
 	bool bIsInteracting;
 	// --------------------
 
+	// ------ 조절 변수 ------
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category ="Variable")
+	float InterActionLength;
 public:	
 	virtual void Tick(float DeltaTime) override;
 

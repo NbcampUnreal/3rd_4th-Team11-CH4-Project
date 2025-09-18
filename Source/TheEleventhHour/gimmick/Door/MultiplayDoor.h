@@ -22,7 +22,6 @@ public:
 
 protected:
 
-
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
@@ -33,10 +32,6 @@ protected:
 	//기본 컴포넌트
 	UPROPERTY(VisibleAnywhere,BlueprintReadWrite,Category="Multiplay Door")
 	TObjectPtr<USceneComponent> SceneComponent;
-   
-	UPROPERTY(EditDefaultsOnly,BlueprintReadWrite,Category="Multiplay Door")
-	TObjectPtr<UBoxComponent> BoxComponent;
-	
 	UPROPERTY(EditDefaultsOnly,BlueprintReadWrite,Category="Multiplay Door")
 	TObjectPtr<UStaticMeshComponent> DoorMesh;
 
@@ -48,15 +43,16 @@ protected:
 
 	
 	UFUNCTION()
-	void OnDoorBeginOverlap(AActor* ThisActor, AActor* OtherActor);
+	void OpenDoor();
 
 	UFUNCTION()
-	void OnDoorEndOverlap(AActor* ThisActor, AActor* OtherActor);
-
-   
-public:   
-	virtual void Tick(float DeltaTime) override;
-
+	void CloseDoor();
+	
+public:
+	
+	UFUNCTION()
+	void InterActionDoor();
+	
 	//문이 열리는데 걸리는 시간
 	UPROPERTY(EditAnywhere, BlueprintReadWrite,Category="Multiplay Door|Timeline")
 	float OpenDuration =0.5f;
@@ -72,4 +68,5 @@ public:
 	
 	bool bIsOpening = false;
 	bool bIsOpen = false;
+	
 };
