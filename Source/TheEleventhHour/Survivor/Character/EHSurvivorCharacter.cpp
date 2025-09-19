@@ -24,10 +24,11 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	
 	GetCharacterMovement()->bUseControllerDesiredRotation = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f);
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 450.0f, 0.0f);
 
 	bIsCrouching = false;
 	bIsInteracting = false;
+	bIsWalking = false;
 }
 
 void AEHSurvivorCharacter::BeginPlay()
@@ -68,6 +69,8 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
 	EIC->BindAction(LookAction, ETriggerEvent::Triggered, this, &ThisClass::Look);
 	EIC->BindAction(CrouchAction, ETriggerEvent::Started, this, &ThisClass::ToggleCrouch);
+	EIC->BindAction(WalkAction, ETriggerEvent::Started, this, &ThisClass::Walk);
+	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::Attack);
 }
 // ------------------
 
@@ -132,6 +135,8 @@ void AEHSurvivorCharacter::ToggleCrouch(const FInputActionValue& value)
 	{
 		UnCrouch();
 		bIsCrouching = false;
+		bIsWalking = false;
+		GetCharacterMovement()->MaxWalkSpeed = 600.f;
 	}
 	else
 	{
@@ -162,3 +167,22 @@ void AEHSurvivorCharacter::EndInteraction(const FInputActionValue& value)
 	bIsInteracting = false;
 }
 // ------------------
+
+// -------걷기-------
+void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
+{
+	if (bIsCrouching)
+	{
+		return;
+	}
+	
+	bIsWalking = !bIsWalking;
+	GetCharacterMovement()->MaxWalkSpeed = bIsWalking ? 400.f : 600.f;
+}
+// ------------------
+
+void AEHSurvivorCharacter::Attack(const FInputActionValue& value)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Attack!"));
+}
+
