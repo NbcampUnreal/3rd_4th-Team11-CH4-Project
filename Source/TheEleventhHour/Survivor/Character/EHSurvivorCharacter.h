@@ -84,6 +84,9 @@ protected:
 	bool bIsWalking;
 	// --------------------
 
+	// ------ 조절 변수 ------
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category ="Variable")
+	float InterActionLength;
 public:	
 	virtual void Tick(float DeltaTime) override;
 
