@@ -1,16 +1,16 @@
 // MultiGameModeBase.cpp
 
 #include "GameMode/MultiGameModeBase.h"
-#include "GameFramework/PlayerController.h"
+#include "Survivor/Controller/EHSurvivorController.h"
 
 void AMultiGameModeBase::PostLogin(APlayerController* NewPlayer)
 {
 	Super::PostLogin(NewPlayer);
-
-	if (IsValid(NewPlayer))
+	
+	AEHSurvivorController* NewPlayerController = Cast<AEHSurvivorController>(NewPlayer);
+	if (IsValid(NewPlayerController) == true)
 	{
-		AlivePlayerControllers.Add(NewPlayer);
-		UE_LOG(LogTemp, Log, TEXT("✅ Player Logged In: %s"), *NewPlayer->GetName());
+		AlivePlayerControllers.Add(NewPlayerController);
 	}
 }
 
@@ -18,12 +18,10 @@ void AMultiGameModeBase::Logout(AController* Exiting)
 {
 	Super::Logout(Exiting);
 
-	APlayerController* ExitingPlayer = Cast<APlayerController>(Exiting);
-	if (IsValid(ExitingPlayer) && AlivePlayerControllers.Contains(ExitingPlayer))
+	AEHSurvivorController* ExitingPlayerController = Cast<AEHSurvivorController>(Exiting);
+	if (IsValid(ExitingPlayerController) == true && AlivePlayerControllers.Find(ExitingPlayerController) != INDEX_NONE)
 	{
-		AlivePlayerControllers.Remove(ExitingPlayer);
-		DeadPlayerControllers.Add(ExitingPlayer);
-
-		UE_LOG(LogTemp, Warning, TEXT("🚪 Player Logged Out: %s"), *ExitingPlayer->GetName());
+		AlivePlayerControllers.Remove(ExitingPlayerController);
+		DeadPlayerControllers.Add(ExitingPlayerController);
 	}
 }

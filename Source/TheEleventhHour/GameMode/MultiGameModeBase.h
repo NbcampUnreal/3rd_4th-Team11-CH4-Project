@@ -4,7 +4,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "MultiGameModeBase.generated.h"
 
-class APlayerController;
+class AEHSurvivorController;
 
 UCLASS()
 class THEELEVENTHHOUR_API AMultiGameModeBase : public AGameModeBase
@@ -18,9 +18,9 @@ public:
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TArray<TObjectPtr<APlayerController>> AlivePlayerControllers;
+	TArray<TObjectPtr<AEHSurvivorController>> AlivePlayerControllers;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TArray<TObjectPtr<APlayerController>> DeadPlayerControllers;	
+	TArray<TObjectPtr<AEHSurvivorController>> DeadPlayerControllers;	
 
 };
