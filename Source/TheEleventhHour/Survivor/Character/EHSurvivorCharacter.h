@@ -43,6 +43,10 @@ protected:
 	TObjectPtr<UInputAction> CrossAction;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> InteractAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> WalkAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> AttackAction;
 	// --------------------
 	
 	// ------ 스프링암 설정 ------
@@ -58,14 +62,17 @@ protected:
 	void Move(const FInputActionValue& value);
 	void Look(const FInputActionValue& value);
 	
-	void StartCrouch(const FInputActionValue& value);
-	void EndCrouch(const FInputActionValue& value);
 	void ToggleCrouch(const FInputActionValue& value);
 	
 	void StartCross(const FInputActionValue& value);
 	void EndCross(const FInputActionValue& value);
 		
 	void StartInteraction(const FInputActionValue& value);
+	void EndInteraction(const FInputActionValue& value);
+
+	void Walk(const FInputActionValue& value);
+
+	void Attack(const FInputActionValue& value);
 	// --------------------
 
 	// ------ 상태관리 ------
@@ -73,6 +80,8 @@ protected:
 	bool bIsCrouching;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
 	bool bIsInteracting;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
+	bool bIsWalking;
 	// --------------------
 
 	// ------ 조절 변수 ------
