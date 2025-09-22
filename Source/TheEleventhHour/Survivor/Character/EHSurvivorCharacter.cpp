@@ -27,6 +27,7 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	GetCharacterMovement()->bUseControllerDesiredRotation = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 450.0f, 0.0f);
+	GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
 
 	bIsCrouching = false;
 	bIsInteracting = false;
@@ -118,6 +119,8 @@ void AEHSurvivorCharacter::Look(const FInputActionValue& value)
 void AEHSurvivorCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
 {
 	Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+
+	bIsCrouching = false;
 	
 	if (SpringArm)
 	{
@@ -127,25 +130,25 @@ void AEHSurvivorCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHal
 void AEHSurvivorCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
 {
 	Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+
+	bIsCrouching = false;
 	
 	if (SpringArm)
 	{
 		SpringArm->SetRelativeLocation(DefaultSpringArmLocation);
 	}
+	
+	GetCharacterMovement()->MaxWalkSpeed = 600.f;
 }
 void AEHSurvivorCharacter::ToggleCrouch(const FInputActionValue& value)
 {
 	if (bIsCrouching)
 	{
 		UnCrouch();
-		bIsCrouching = false;
-		bIsWalking = false;
-		GetCharacterMovement()->MaxWalkSpeed = 600.f;
 	}
 	else
 	{
 		Crouch();
-		bIsCrouching = true;
 	}
 }
 // ------------------
