@@ -13,6 +13,9 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
+	// 속성 컴포넌트 생성
+	AttributeComp = CreateDefaultSubobject<UAttributeComponent>(TEXT("AttributeComp"));
+
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(GetCapsuleComponent());
 	SpringArm->TargetArmLength = 400.f;
@@ -28,6 +31,7 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 450.0f, 0.0f);
 	GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
+	AttributeComp->SetCurrentSpeed(AttributeComp->BaseSpeed);
 
 	bIsCrouching = false;
 	bIsInteracting = false;
@@ -120,7 +124,7 @@ void AEHSurvivorCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHal
 {
 	Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
 
-	bIsCrouching = false;
+	bIsCrouching = true;
 	
 	if (SpringArm)
 	{
@@ -137,18 +141,18 @@ void AEHSurvivorCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfH
 	{
 		SpringArm->SetRelativeLocation(DefaultSpringArmLocation);
 	}
-	
-	GetCharacterMovement()->MaxWalkSpeed = 600.f;
 }
 void AEHSurvivorCharacter::ToggleCrouch(const FInputActionValue& value)
 {
 	if (bIsCrouching)
 	{
 		UnCrouch();
+		UE_LOG(LogTemp, Warning, TEXT("UnCrouch!"));
 	}
 	else
 	{
 		Crouch();
+		UE_LOG(LogTemp, Warning, TEXT("Crouch!"));
 	}
 }
 // ------------------
@@ -192,7 +196,6 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 		UE_LOG(LogTemp,Log,TEXT("LineTraceMiss"));
 	}
 }
-
 // ------------------
 
 // -------걷기-------
@@ -208,8 +211,14 @@ void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
 }
 // ------------------
 
+// -------공격-------
 void AEHSurvivorCharacter::Attack(const FInputActionValue& value)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Attack!"));
 }
 
+void AEHSurvivorCharacter::ServerAttack_Implementation()
+{
+}
+
+// ------------------

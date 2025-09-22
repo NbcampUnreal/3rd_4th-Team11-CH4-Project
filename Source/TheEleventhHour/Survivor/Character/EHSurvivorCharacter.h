@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Survivor/Character/AttributeComponent.h"
 #include "EHSurvivorCharacter.generated.h"
 
 class UCameraComponent;
@@ -72,8 +73,14 @@ protected:
 
 	void Walk(const FInputActionValue& value);
 
+	UFUNCTION(BlueprintCallable, Category="Combat")
 	void Attack(const FInputActionValue& value);
 	// --------------------
+
+	// ------ 서버 처리 ------
+	UFUNCTION(Server, Reliable)
+	void ServerAttack();
+	// ----------------------
 
 	// ------ 상태관리 ------
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
@@ -87,6 +94,13 @@ protected:
 	// ------ 조절 변수 ------
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category ="Variable")
 	float InterActionLength;
+	// --------------------
+
+	// ------ 상태컴포넌트 ------
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Attribute")
+	UAttributeComponent* AttributeComp;
+	// ------------------------
+	
 public:	
 	virtual void Tick(float DeltaTime) override;
 
