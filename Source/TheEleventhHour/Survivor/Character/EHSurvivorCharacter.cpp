@@ -13,6 +13,9 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
+	// 속성 컴포넌트 생성
+	AttributeComp = CreateDefaultSubobject<UAttributeComponent>(TEXT("AttributeComp"));
+
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(GetCapsuleComponent());
 	SpringArm->TargetArmLength = 400.f;
@@ -27,6 +30,8 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	GetCharacterMovement()->bUseControllerDesiredRotation = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 450.0f, 0.0f);
+	GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
+	AttributeComp->SetCurrentSpeed(AttributeComp->BaseSpeed);
 
 	bIsCrouching = false;
 	bIsInteracting = false;
@@ -118,6 +123,8 @@ void AEHSurvivorCharacter::Look(const FInputActionValue& value)
 void AEHSurvivorCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
 {
 	Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+
+	bIsCrouching = true;
 	
 	if (SpringArm)
 	{
@@ -127,6 +134,8 @@ void AEHSurvivorCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHal
 void AEHSurvivorCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
 {
 	Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+
+	bIsCrouching = false;
 	
 	if (SpringArm)
 	{
@@ -138,14 +147,12 @@ void AEHSurvivorCharacter::ToggleCrouch(const FInputActionValue& value)
 	if (bIsCrouching)
 	{
 		UnCrouch();
-		bIsCrouching = false;
-		bIsWalking = false;
-		GetCharacterMovement()->MaxWalkSpeed = 600.f;
+		UE_LOG(LogTemp, Warning, TEXT("UnCrouch!"));
 	}
 	else
 	{
 		Crouch();
-		bIsCrouching = true;
+		UE_LOG(LogTemp, Warning, TEXT("Crouch!"));
 	}
 }
 // ------------------
@@ -189,7 +196,6 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 		UE_LOG(LogTemp,Log,TEXT("LineTraceMiss"));
 	}
 }
-
 // ------------------
 
 // -------걷기-------
@@ -205,8 +211,14 @@ void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
 }
 // ------------------
 
+// -------공격-------
 void AEHSurvivorCharacter::Attack(const FInputActionValue& value)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Attack!"));
 }
 
+void AEHSurvivorCharacter::ServerAttack_Implementation()
+{
+}
+
+// ------------------
