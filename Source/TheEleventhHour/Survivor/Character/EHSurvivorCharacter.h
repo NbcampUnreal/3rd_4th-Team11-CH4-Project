@@ -102,7 +102,19 @@ protected:
 	UAttributeComponent* AttributeComp;
 	// ------------------------
 	
+	
 public:	
 	virtual void Tick(float DeltaTime) override;
+
+	UFUNCTION()
+	void UseSlot0();
+
+	UFUNCTION()
+	void UseSlot1();
+
+// Item : 임시 디버그용 
+private:
+	void Debug_TakeDamage(); // T 키로 호출
+	void Debug_PrintHealth() const; // 현재 체력 출력
 
 };
