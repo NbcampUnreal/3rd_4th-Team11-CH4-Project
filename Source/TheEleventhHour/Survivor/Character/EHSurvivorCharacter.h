@@ -74,7 +74,8 @@ protected:
 	void Walk(const FInputActionValue& value);
 
 	UFUNCTION(BlueprintCallable, Category="Combat")
-	void Attack(const FInputActionValue& value);
+	void AttackInput(const FInputActionValue& value);
+	void Attack();
 	// --------------------
 
 	// ------ 서버 처리 ------

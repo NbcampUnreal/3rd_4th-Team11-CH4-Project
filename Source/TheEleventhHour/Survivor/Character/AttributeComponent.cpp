@@ -39,6 +39,7 @@ void UAttributeComponent::TakeDamage(float Damage)
 }
 // --------------
 
+// ------속도------
 void UAttributeComponent::SetCurrentSpeed(float SetSpeed)
 {
 	if (GetOwnerRole() == ROLE_Authority)
@@ -64,6 +65,7 @@ void UAttributeComponent::OnRep_CurrentSpeed()
 		}
 	}
 }
+// --------------
 
 // ------레플리케이션------
 void UAttributeComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
