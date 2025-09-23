@@ -51,4 +51,15 @@ public:
 
 	// Replication 설정
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+// ----Item : 임시 디버그용---- 
+	UFUNCTION(BlueprintCallable) void ApplyDamage(float Amount);
+	UFUNCTION(BlueprintCallable) void ApplyHeal(float Amount);
+
+	// 버프 타이머용
+	FTimerHandle TimerHandle_SpeedBuff;
+
+	// 속도 버프 헬퍼
+	UFUNCTION(BlueprintCallable, Category="Attribute|Speed")
+	void ApplySpeedBuff(float AddSpeed, float Duration);
+// -----------Item end--------------	
 };

@@ -2,6 +2,7 @@
 #include "Net/UnrealNetwork.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "TimerManager.h" // Item : 이동속도 증가용 타이머
 
 UAttributeComponent::UAttributeComponent()
 {
@@ -74,3 +75,39 @@ void UAttributeComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	DOREPLIFETIME(UAttributeComponent, CurrentSpeed);
 }
 // ---------------------
+
+// Item : 임시 디버그용
+void UAttributeComponent::ApplyDamage(float Amount)
+{
+	if (Amount <= 0.f) return;
+	SetHealth(Health - Amount);
+}
+
+void UAttributeComponent::ApplyHeal(float Amount)
+{
+	if (Amount <= 0.f) return;
+	SetHealth(Health + Amount);
+}
+// Item 이동속도 증가
+void UAttributeComponent::ApplySpeedBuff(float AddSpeed, float Duration)
+{
+	// 현재속도를 올리고, Duration 이후에 원복
+	const float Target = CurrentSpeed + AddSpeed;  // CurrentSpeed/OnRep는 기존 구조 재사용
+	SetCurrentSpeed(Target);                       // 이미 MaxWalkSpeed에 반영되도록 구성되어 있음
+
+	// 기존 타이머가 있다면 갱신
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(TimerHandle_SpeedBuff);
+		World->GetTimerManager().SetTimer(
+			TimerHandle_SpeedBuff,
+			[this]()
+			{
+				// 원복: BaseSpeed로 복귀
+				SetCurrentSpeed(BaseSpeed);
+			},
+			Duration, false
+		);
+	}
+}
+// --------Item end--------

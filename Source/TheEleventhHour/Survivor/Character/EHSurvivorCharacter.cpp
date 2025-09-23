@@ -7,6 +7,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "gimmick/Door/MultiplayDoor.h"
+#include "Item/Inventory/InventoryComponent.h"
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
 	:InterActionLength(300.0f)
@@ -72,7 +73,11 @@ void AEHSurvivorCharacter::Tick(float DeltaTime)
 void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
+	// Item : 임시 디버그용
+	PlayerInputComponent->BindKey(EKeys::T, IE_Pressed, this, &AEHSurvivorCharacter::Debug_TakeDamage);
+	PlayerInputComponent->BindKey(EKeys::One, IE_Pressed, this, &AEHSurvivorCharacter::UseSlot0);
+	PlayerInputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AEHSurvivorCharacter::UseSlot1);
+	
 	UEnhancedInputComponent* EIC = CastChecked<UEnhancedInputComponent>(PlayerInputComponent);
 
 	EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
@@ -222,3 +227,41 @@ void AEHSurvivorCharacter::ServerAttack_Implementation()
 }
 
 // ------------------
+
+// Item : 임시 디버그용 
+void AEHSurvivorCharacter::Debug_TakeDamage()
+{
+	if (!AttributeComp) return;
+	AttributeComp->ApplyDamage(50.f); // 테스트값: 50
+	Debug_PrintHealth();
+}
+
+void AEHSurvivorCharacter::Debug_PrintHealth() const
+{
+	if (!AttributeComp) return;
+	// 접근자 이름은 실제 컴포넌트에 맞게 사용(예: GetHealth()/GetMaxHealth())
+	const float Cur = AttributeComp->GetHealth();
+	const float Max = AttributeComp->MaxHealth;
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			/*Key*/ -1, /*Time*/ 1.5f, FColor::Yellow,
+			FString::Printf(TEXT("[HP] %.0f / %.0f"), Cur, Max));
+	}
+}
+void AEHSurvivorCharacter::UseSlot0()
+{
+	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+	{
+		Inv->UseItemBySlot(0); // 1번 키 → 슬롯 0
+	}
+}
+
+void AEHSurvivorCharacter::UseSlot1()
+{
+	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+	{
+		Inv->UseItemBySlot(1); // 2번 키 → 슬롯 1
+	}
+}
