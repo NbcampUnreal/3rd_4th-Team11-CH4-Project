@@ -7,6 +7,11 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "gimmick/Door/MultiplayDoor.h"
+#include "DrawDebugHelpers.h"
+#include "Item/Chest/Chest.h"
+#include "GameFramework/DamageType.h"
+#include "Engine/DamageEvents.h"
+#include "Kismet/GameplayStatics.h"
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
 	:InterActionLength(300.0f)
@@ -79,7 +84,7 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(LookAction, ETriggerEvent::Triggered, this, &ThisClass::Look);
 	EIC->BindAction(CrouchAction, ETriggerEvent::Started, this, &ThisClass::ToggleCrouch);
 	EIC->BindAction(WalkAction, ETriggerEvent::Started, this, &ThisClass::Walk);
-	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::Attack);
+	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::AttackInput);
 }
 // ------------------
 
@@ -212,13 +217,45 @@ void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
 // ------------------
 
 // -------공격-------
-void AEHSurvivorCharacter::Attack(const FInputActionValue& value)
+void AEHSurvivorCharacter::Attack()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Attack!"));
+
+	if (!HasAuthority())
+	{
+		ServerAttack();
+		return;
+	}
+
+	FVector Start = GetActorLocation() + FVector(0, 0, -30);
+	FVector Forward = GetActorForwardVector();
+	FVector End = Start + (Forward * 300.f);
+
+	FHitResult HitResult;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 2.0f, 0, 3.0f);
+	if (GetWorld()->LineTraceSingleByChannel(HitResult,Start,End,ECC_WorldDynamic,Params))
+	{
+		if (AChest* Chest = Cast<AChest>(HitResult.GetActor()))
+		{
+			UGameplayStatics::ApplyDamage(Chest, 10.f, GetController(), this, nullptr);
+			UE_LOG(LogTemp, Log, TEXT("Chest Attack"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("Attack miss!"));
+	}
+}
+void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value)
+{
+	Attack();
 }
 
 void AEHSurvivorCharacter::ServerAttack_Implementation()
 {
+	Attack();
 }
-
 // ------------------
