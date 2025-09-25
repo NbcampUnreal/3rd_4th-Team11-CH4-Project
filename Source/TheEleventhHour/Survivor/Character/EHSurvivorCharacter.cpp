@@ -90,6 +90,7 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(CrouchAction, ETriggerEvent::Started, this, &ThisClass::ToggleCrouch);
 	EIC->BindAction(WalkAction, ETriggerEvent::Started, this, &ThisClass::Walk);
 	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::AttackInput);
+	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
 }
 // ------------------
 
@@ -197,7 +198,7 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 			UE_LOG(LogTemp,Log,TEXT("%s"),*HitActor->GetName());
 			if (AMultiplayDoor* Door = Cast<AMultiplayDoor>(HitActor))
 			{
-				Door->InterActionDoor();
+				ServerRPCInteractionDoorOnPawn(Door);
 			}
 		}
 	}
@@ -205,6 +206,11 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 	{
 		UE_LOG(LogTemp,Log,TEXT("LineTraceMiss"));
 	}
+}
+
+void AEHSurvivorCharacter::ServerRPCInteractionDoorOnPawn_Implementation(class AMultiplayDoor* Door)
+{
+	Door->InterActionDoor();
 }
 // ------------------
 
@@ -287,6 +293,8 @@ void AEHSurvivorCharacter::Debug_PrintHealth() const
 			FString::Printf(TEXT("[HP] %.0f / %.0f"), Cur, Max));
 	}
 }
+
+
 void AEHSurvivorCharacter::UseSlot0()
 {
 	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())

@@ -117,4 +117,10 @@ private:
 	void Debug_TakeDamage(); // T 키로 호출
 	void Debug_PrintHealth() const; // 현재 체력 출력
 
+
+//문 네트워킹 관련
+protected:
+	UFUNCTION(Server,reliable)
+	void ServerRPCInteractionDoorOnPawn(class AMultiplayDoor* Door);
+	
 };

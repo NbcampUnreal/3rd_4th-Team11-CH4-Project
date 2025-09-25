@@ -68,8 +68,15 @@ public:
 	FRotator InitialLocalRotation;
 	//목표 로테이터
 	FRotator TargetLocalRotation;
+
+	FTimerHandle DoorTimer;
+	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	
+	UPROPERTY(Replicated)
 	bool bIsDoorMoving = false;
+	UPROPERTY(ReplicatedUsing = OnRep_DoorState)
 	bool bIsOpen = false;
 	
+	UFUNCTION()
+	void OnRep_DoorState();
 };

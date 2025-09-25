@@ -5,12 +5,15 @@
 #include "Components/BoxComponent.h"
 #include "Components/TimelineComponent.h"
 #include "Curves/CurveFloat.h"
+#include "Net/UnrealNetwork.h"
 
 // Sets default values
 AMultiplayDoor::AMultiplayDoor()
 {
     // Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
    PrimaryActorTick.bCanEverTick = false;
+   bReplicates = true;
+   SetReplicateMovement(false);
 
    SceneComponent = CreateDefaultSubobject<USceneComponent>("SceneComponent");
    SetRootComponent(SceneComponent);
@@ -62,9 +65,6 @@ void AMultiplayDoor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AMultiplayDoor::OpenDoor()
 {
-   if (bIsOpen||bIsDoorMoving) return;
-
-   bIsDoorMoving= true;
    TargetLocalRotation = InitialLocalRotation + FRotator(0.0f,OpenYawDelta,0.0f);
 
    if (DoorTimeLine)
@@ -73,28 +73,47 @@ void AMultiplayDoor::OpenDoor()
       DoorTimeLine->PlayFromStart();
    }
    
-   bIsOpen = true;
 }
 
 void AMultiplayDoor::CloseDoor()
 {
-   if (!bIsOpen||bIsDoorMoving) return;
-
-   bIsDoorMoving = true;
-   
    if (DoorTimeLine)
    {
       DoorTimeLine->ReverseFromEnd();
    }
-   bIsOpen=false;
 }
 
 void AMultiplayDoor::InterActionDoor()
 {
    if (bIsDoorMoving) return;
+   bIsDoorMoving=true;
    
    if (!bIsOpen)
+   {
+      bIsOpen=true;
       OpenDoor();
-   else
+   }
+   else if (bIsOpen)
+   {
+      bIsOpen=false;
+      CloseDoor();
+   }
+   
+}
+
+
+void AMultiplayDoor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+   Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+   DOREPLIFETIME(ThisClass,bIsDoorMoving);
+   DOREPLIFETIME(ThisClass,bIsOpen);
+}
+
+void AMultiplayDoor::OnRep_DoorState()
+{
+   if (bIsOpen)
+      OpenDoor();
+   else if (!bIsOpen)
       CloseDoor();
 }
