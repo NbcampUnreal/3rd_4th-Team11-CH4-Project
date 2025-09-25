@@ -181,8 +181,10 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 			UE_LOG(LogTemp,Log,TEXT("%s"),*HitActor->GetName());
 			if (AMultiplayDoor* Door = Cast<AMultiplayDoor>(HitActor))
 			{
+				//추후 인터페이스 상속받아서 HitActor->InterAction식으로 바꿔야 함
 				Door->InterActionDoor();
 			}
+			
 		}
 	}
 	else

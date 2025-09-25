@@ -6,12 +6,12 @@
 #include "GameFramework/Character.h"
 #include "MurdererCharacter.generated.h"
 
-class USceneComponent;
-class UStaticMeshComponent;
 class UCameraComponent;
 class USpringArmComponent;
 class UInputMappingContext;
-class UInputComponent;
+class UInputAction;
+struct FInputActionValue;
+
 
 UCLASS()
 class THEELEVENTHHOUR_API AMurdererCharacter : public ACharacter
@@ -28,12 +28,6 @@ protected:
 
 	//기본 컴포넌트
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="DefaultComponent")
-	TObjectPtr<USceneComponent> SceneComponent;
-	
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="DefaultComponent")
-	TObjectPtr<UStaticMeshComponent> StaticMeshComponent;
-	
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="DefaultComponent")
 	TObjectPtr<UCameraComponent> CameraComponent;
 	
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="DefaultComponent")
@@ -44,20 +38,59 @@ protected:
 	TObjectPtr<UInputMappingContext> InputMappingContext;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="InputAction")
-	TObjectPtr<UInputComponent> MoveAction;
+	TObjectPtr<UInputAction> MoveAction;
 	
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="InputAction")
-	TObjectPtr<UInputComponent> LookAction;
+	TObjectPtr<UInputAction> LookAction;
+
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="InputAction")
+	TObjectPtr<UInputAction> AttackAction;
 	
-	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="InputAction")
-	TObjectPtr<UInputComponent> JumpAction;
+	//인풋 액션 바인딩 함수
+	void Move(const FInputActionValue& ActionValue);
+
+	void Look(const FInputActionValue& ActionValue);
+
+	void Attack(const FInputActionValue& ActionValue);
 	
 	//상태 변수, 속성 변수
-	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Variables")
+	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Variables")
 	float BaseSpeed;
-	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="Variables")
+	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Variables")
 	bool bCanAttack = true;
+	
+	/* 공격 관련 */
+	UFUNCTION(BlueprintCallable, Category="Combat")
+	void PerformMeleeHit();
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Animation")
+	UAnimMontage* AttackMontage;
+	
+	UPROPERTY()
+	TSet<TWeakObjectPtr<AActor>> HitActorsThisSwing;
+	/** 스윙 시작 시 클리어해주고, 노티파이 타이밍마다 판정할 때 사용 */
+	UFUNCTION(BlueprintCallable, Category="Combat")
+	void BeginMeleeSwingWindow();
+	/** 디버그 그리기 여부 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Debug")
+	bool bDrawDebug = false;
+	/* 전방 스윕 거리 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat")
+	float MeleeRange = 150.f;
+	/* 스윕 구체 반경 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat")
+	float MeleeRadius = 60.f;
+	/* 기본 데미지 값 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat")
+	float MeleeDamage = 25.f;
+	/** 데미지 타입 */
+	UPROPERTY(EditDefaultsOnly, Category="Combat")
+	TSubclassOf<UDamageType> DamageTypeClass;
+	/** 충돌 채널 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat")
+	TEnumAsByte<ECollisionChannel> TraceChannel = ECC_Pawn;
+
+	
 public:	
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
