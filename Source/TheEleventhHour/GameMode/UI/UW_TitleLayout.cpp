@@ -28,6 +28,10 @@ void UUW_TitleLayout::OnHostClicked()
 
 void UUW_TitleLayout::OnJoinClicked()
 {
-	
+	if (ATitlePlayerController* PC = GetOwningPlayer<ATitlePlayerController>())
+	{
+		// 🔹 세션 검색 후 자동으로 첫 번째 세션 참가
+		PC->FindAndJoinGame();
+	}
 }
 
