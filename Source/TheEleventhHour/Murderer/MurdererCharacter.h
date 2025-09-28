@@ -51,8 +51,10 @@ protected:
 
 	void Look(const FInputActionValue& ActionValue);
 
+	UFUNCTION(Server,Reliable)
 	void Attack(const FInputActionValue& ActionValue);
 	
+
 	//상태 변수, 속성 변수
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Variables")
 	float BaseSpeed;
@@ -62,6 +64,9 @@ protected:
 	/* 공격 관련 */
 	UFUNCTION(BlueprintCallable, Category="Combat")
 	void PerformMeleeHit();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void NetMulticast_PlayAttackAnimMontage();
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Animation")
 	UAnimMontage* AttackMontage;

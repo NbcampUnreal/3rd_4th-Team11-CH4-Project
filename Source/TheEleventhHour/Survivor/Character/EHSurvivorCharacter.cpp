@@ -19,6 +19,7 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	:InterActionLength(300.0f)
 	, bIsAttack(false)
 	, MeleeAttackMontagePlayTime(0.f)
+	,Health(MaxHealth)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	// 레플리케이션 설정
@@ -96,10 +97,40 @@ void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(AEHSurvivorCharacter, bIsAttack);
 }
 
+float AEHSurvivorCharacter::TakeDamage(float DamageAmount,
+									   const FDamageEvent& DamageEvent,
+									   AController* EventInstigator,
+									   AActor* DamageCauser)
+{
+	if (!HasAuthority())
+		return 0.f;
+
+	const float ActualDamage = FMath::Max(0.f, DamageAmount);
+	if (ActualDamage <= 0.f)
+		return 0.f;
+
+	// 체력 감소
+	const float OldHealth = Health;
+	Health = FMath::Clamp(Health - ActualDamage, 0.f, MaxHealth);
+
+	
+	Super::TakeDamage(ActualDamage, DamageEvent, EventInstigator, DamageCauser);
+
+	// 사망 처리
+	if (Health <= 0.f)
+	{
+		Destroy(); // 서버에서 파괴 → 클라이언트에도 복제됨
+	}
+
+	// 실제로 적용된 데미지 반환(남은 체력보다 큰 데미지면 깎인 만큼만)
+	return OldHealth - Health;
+}
+
 void AEHSurvivorCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	
 }
 
 // ------인풋 바인딩------
@@ -118,6 +149,7 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(CrouchAction, ETriggerEvent::Started, this, &ThisClass::ToggleCrouch);
 	EIC->BindAction(WalkAction, ETriggerEvent::Started, this, &ThisClass::Walk);
 	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::AttackInput);
+	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
 }
 // ------------------
 
@@ -225,7 +257,7 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 			UE_LOG(LogTemp,Log,TEXT("%s"),*HitActor->GetName());
 			if (AMultiplayDoor* Door = Cast<AMultiplayDoor>(HitActor))
 			{
-				Door->InterActionDoor();
+				ServerRPCInteractionDoorOnPawn(Door);
 			}
 		}
 	}
@@ -233,6 +265,11 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 	{
 		UE_LOG(LogTemp,Log,TEXT("LineTraceMiss"));
 	}
+}
+
+void AEHSurvivorCharacter::ServerRPCInteractionDoorOnPawn_Implementation(class AMultiplayDoor* Door)
+{
+	Door->InterActionDoor();
 }
 // ------------------
 
