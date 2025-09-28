@@ -9,6 +9,7 @@ class UBoxComponent;
 class AItemPickup;
 class UParticleSystem;
 class USoundBase;
+class UAudioComponent;
 
 UCLASS()
 class THEELEVENTHHOUR_API AChest : public AActor
@@ -75,6 +76,35 @@ protected:
 
     UPROPERTY(EditAnywhere, Category="Chest|FX")
     USoundBase* BreakSFX = nullptr;
+
+    UPROPERTY(EditAnywhere, Category="Chest|FX")
+    USoundBase* HitSFX = nullptr;
+
+    UPROPERTY(EditAnywhere, Category="Chest|FX")
+    USoundBase* DamageLoopSFX = nullptr;
+
+    // 루프음 끄기 지연
+    UPROPERTY(EditAnywhere, Category="Chest|FX", meta=(ClampMin="0.05", ClampMax="2.0"))
+    float DamageLoopStopDelay = 0.25f;
+
+    // 루프용 컴포넌트(클라별 로컬 재생)
+    UPROPERTY(Transient)
+    UAudioComponent* DamageLoopComp = nullptr;
+
+    FTimerHandle DamageLoopStopTimer;
+
+    // 모든 클라에 사운드 재생 지시
+    UFUNCTION(NetMulticast, Unreliable)
+    void MulticastPlayHitSFX();
+
+    UFUNCTION(NetMulticast, Unreliable)
+    void MulticastStartDamageLoop();
+
+    UFUNCTION(NetMulticast, Unreliable)
+    void MulticastStopDamageLoop();
+
+    UFUNCTION(NetMulticast, Reliable)
+    void MulticastPlayBreakSFX();
 
 public:
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

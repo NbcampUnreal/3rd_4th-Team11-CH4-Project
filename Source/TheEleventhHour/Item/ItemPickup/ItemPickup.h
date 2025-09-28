@@ -18,6 +18,28 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Item")
 	EItemType ItemType = EItemType::Key;
 
+	UPROPERTY(EditAnywhere, Category="Pickup")
+	float PickupDelaySeconds = 1.0f;
+
+	UPROPERTY(VisibleInstanceOnly, Category="Pickup")
+	bool bCanBePickedUp;
+
+	FTimerHandle PickupEnableTimer;
+
+	UPROPERTY(EditAnywhere, Category="Pickup")
+	float AutoDespawnSeconds = 10.f;   // 원하는 기본값
+	FTimerHandle DespawnTimer;
+
+	UFUNCTION()
+	void DespawnSelf();
+
+	virtual void BeginPlay() override;
+
+	UFUNCTION()
+	void EnablePickup();
+
+	bool TryPickup(AActor* Other);
+	
 	UFUNCTION()
 	void OnOverlap(UPrimitiveComponent* Overlapped, AActor* Other,
 				   UPrimitiveComponent* OtherComp, int32 BodyIndex,

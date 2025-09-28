@@ -7,14 +7,17 @@
 AItemPickup::AItemPickup()
 {
 	PrimaryActorTick.bCanEverTick = false;
-
+	bReplicates = true;
+	bCanBePickedUp = false;
+	
 	Sphere = CreateDefaultSubobject<USphereComponent>(TEXT("Sphere"));
 	SetRootComponent(Sphere);
 	Sphere->InitSphereRadius(60.f);
 	Sphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	Sphere->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
+	
 	Sphere->SetCollisionResponseToAllChannels(ECR_Ignore);
-	Sphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	Sphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	Mesh->SetupAttachment(RootComponent);
@@ -22,23 +25,73 @@ AItemPickup::AItemPickup()
 
 	Sphere->OnComponentBeginOverlap.AddDynamic(this, &AItemPickup::OnOverlap);
 }
-
-void AItemPickup::OnOverlap(UPrimitiveComponent* Overlapped, AActor* Other,
-	UPrimitiveComponent* OtherComp, int32 BodyIndex, bool bFromSweep, const FHitResult& Hit)
+void AItemPickup::BeginPlay()
 {
-	if (!Other) return;
+	Super::BeginPlay();
+
+	// 1.5초 뒤에 EnablePickup 실행
+	GetWorldTimerManager().SetTimer(PickupEnableTimer, this, &AItemPickup::EnablePickup, PickupDelaySeconds, false);
+
+	if (HasAuthority() && AutoDespawnSeconds > 0.f)
+   {
+		GetWorldTimerManager().SetTimer(DespawnTimer, this, &AItemPickup::DespawnSelf, AutoDespawnSeconds, false);
+   }
+}
+
+void AItemPickup::EnablePickup()
+{
+	Sphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	bCanBePickedUp = true;
+
+	if (HasAuthority())
+	{
+		TArray<AActor*> Overlapping;
+		Sphere->GetOverlappingActors(Overlapping);
+		for (AActor* O : Overlapping)
+		{
+			if (TryPickup(O))
+			{
+				break;
+			}
+		}
+	}
+}
+
+bool AItemPickup::TryPickup(AActor* Other)
+{
+	if (!HasAuthority() || !bCanBePickedUp || !IsValid(Other)) return false;
 
 	if (UInventoryComponent* Inv = Other->FindComponentByClass<UInventoryComponent>())
 	{
 		if (Inv->AddItem(ItemType))
 		{
-			UE_LOG(LogItem, Log, TEXT("[Pickup] %s 획득 → 아이템 제거"),
+			UE_LOG(LogItem, Log, TEXT("[Pickup] %s 획득"),
 				*UEnum::GetValueAsString(ItemType));
-			Destroy(); // 로컬: 즉시 제거
+
+			GetWorldTimerManager().ClearTimer(DespawnTimer);
+			
+			Destroy();
+			return true;
 		}
 		else
 		{
 			UE_LOG(LogItem, Warning, TEXT("[Pickup] 인벤토리 가득 → 미획득"));
 		}
 	}
+	return false;
+}
+
+void AItemPickup::OnOverlap(UPrimitiveComponent* Overlapped, AActor* Other,
+	UPrimitiveComponent* OtherComp, int32 BodyIndex, bool bFromSweep, const FHitResult& Hit)
+{
+	if (!HasAuthority() || !bCanBePickedUp) return;
+
+	TryPickup(Other);
+}
+void AItemPickup::DespawnSelf()
+{
+	if (!HasAuthority()) return;
+	UE_LOG(LogItem, Log, TEXT("[Pickup] %s 일정 시간 미획득 → 자동 소멸"),
+	    *UEnum::GetValueAsString(ItemType));
+	Destroy();
 }
