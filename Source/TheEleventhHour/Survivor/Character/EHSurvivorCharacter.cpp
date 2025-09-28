@@ -7,11 +7,35 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "gimmick/Door/MultiplayDoor.h"
+#include "DrawDebugHelpers.h"
+#include "Item/Chest/Chest.h"
+#include "GameFramework/DamageType.h"
+#include "Engine/DamageEvents.h"
+#include "Kismet/GameplayStatics.h"
+#include "Item/Inventory/InventoryComponent.h"
+#include "Net/UnrealNetwork.h"
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
 	:InterActionLength(300.0f)
+	, bIsAttack(false)
+	, MeleeAttackMontagePlayTime(0.f)
 {
 	PrimaryActorTick.bCanEverTick = true;
+	// 레플리케이션 설정
+	bReplicates = true;
+	
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->SetIsReplicated(true);
+	}
+
+	if (GetMesh())
+	{
+		GetMesh()->SetIsReplicated(true);
+	}
+	
+	// 속성 컴포넌트 생성
+	AttributeComp = CreateDefaultSubobject<UAttributeComponent>(TEXT("AttributeComp"));
 
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArm->SetupAttachment(GetCapsuleComponent());
@@ -27,6 +51,8 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	GetCharacterMovement()->bUseControllerDesiredRotation = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 450.0f, 0.0f);
+	GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
+	AttributeComp->SetCurrentSpeed(AttributeComp->BaseSpeed);
 
 	bIsCrouching = false;
 	bIsInteracting = false;
@@ -55,6 +81,19 @@ void AEHSurvivorCharacter::BeginPlay()
 	
 		EILPS->AddMappingContext(InputMappingContext, 0);
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("ROLE: %d, RemoteRole: %d, NetMode: %d, Character: %s"),
+	(int32)GetLocalRole(),
+	(int32)GetRemoteRole(),
+	(int32)GetNetMode(),
+	*GetName());
+}
+
+void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	DOREPLIFETIME(AEHSurvivorCharacter, bIsAttack);
 }
 
 void AEHSurvivorCharacter::Tick(float DeltaTime)
@@ -67,15 +106,18 @@ void AEHSurvivorCharacter::Tick(float DeltaTime)
 void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
+	// Item : 임시 디버그용
+	PlayerInputComponent->BindKey(EKeys::T, IE_Pressed, this, &AEHSurvivorCharacter::Debug_TakeDamage);
+	PlayerInputComponent->BindKey(EKeys::One, IE_Pressed, this, &AEHSurvivorCharacter::UseSlot0);
+	PlayerInputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AEHSurvivorCharacter::UseSlot1);
+	
 	UEnhancedInputComponent* EIC = CastChecked<UEnhancedInputComponent>(PlayerInputComponent);
 
 	EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
 	EIC->BindAction(LookAction, ETriggerEvent::Triggered, this, &ThisClass::Look);
 	EIC->BindAction(CrouchAction, ETriggerEvent::Started, this, &ThisClass::ToggleCrouch);
 	EIC->BindAction(WalkAction, ETriggerEvent::Started, this, &ThisClass::Walk);
-	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::Attack);
-	EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &ThisClass::StartInteraction);
+	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::AttackInput);
 }
 // ------------------
 
@@ -119,6 +161,8 @@ void AEHSurvivorCharacter::Look(const FInputActionValue& value)
 void AEHSurvivorCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
 {
 	Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+
+	bIsCrouching = true;
 	
 	if (SpringArm)
 	{
@@ -128,6 +172,8 @@ void AEHSurvivorCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHal
 void AEHSurvivorCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
 {
 	Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+
+	bIsCrouching = false;
 	
 	if (SpringArm)
 	{
@@ -139,14 +185,12 @@ void AEHSurvivorCharacter::ToggleCrouch(const FInputActionValue& value)
 	if (bIsCrouching)
 	{
 		UnCrouch();
-		bIsCrouching = false;
-		bIsWalking = false;
-		GetCharacterMovement()->MaxWalkSpeed = 600.f;
+		UE_LOG(LogTemp, Warning, TEXT("UnCrouch!"));
 	}
 	else
 	{
 		Crouch();
-		bIsCrouching = true;
+		UE_LOG(LogTemp, Warning, TEXT("Crouch!"));
 	}
 }
 // ------------------
@@ -181,10 +225,8 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 			UE_LOG(LogTemp,Log,TEXT("%s"),*HitActor->GetName());
 			if (AMultiplayDoor* Door = Cast<AMultiplayDoor>(HitActor))
 			{
-				//추후 인터페이스 상속받아서 HitActor->InterAction식으로 바꿔야 함
 				Door->InterActionDoor();
 			}
-			
 		}
 	}
 	else
@@ -192,17 +234,11 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 		UE_LOG(LogTemp,Log,TEXT("LineTraceMiss"));
 	}
 }
-
-void AEHSurvivorCharacter::EndInteraction(const FInputActionValue& value)
-{
-	
-}
 // ------------------
 
 // -------걷기-------
 void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
 {
-	bIsInteracting = false;
 	if (bIsCrouching)
 	{
 		return;
@@ -211,11 +247,95 @@ void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
 	bIsWalking = !bIsWalking;
 	GetCharacterMovement()->MaxWalkSpeed = bIsWalking ? 400.f : 600.f;
 }
-
 // ------------------
 
-void AEHSurvivorCharacter::Attack(const FInputActionValue& value)
+// -------공격-------
+void AEHSurvivorCharacter::Attack()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Attack!"));
+
+	if (!HasAuthority())
+	{
+		ServerAttack();
+		return;
+	}
+
+	bIsAttack = true;
+	OnRep_Attack();
+
+	FVector Start = GetActorLocation() + FVector(0, 0, -30);
+	FVector Forward = GetActorForwardVector();
+	FVector End = Start + (Forward * 300.f);
+
+	FHitResult HitResult;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 2.0f, 0, 3.0f);
+	if (GetWorld()->LineTraceSingleByChannel(HitResult,Start,End,ECC_WorldDynamic,Params))
+	{
+		if (AChest* Chest = Cast<AChest>(HitResult.GetActor()))
+		{
+			UGameplayStatics::ApplyDamage(Chest, 10.f, GetController(), this, nullptr);
+			UE_LOG(LogTemp, Log, TEXT("Chest Attack"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("Attack miss!"));
+	}
+}
+void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value)
+{
+	Attack();
 }
 
+void AEHSurvivorCharacter::ServerAttack_Implementation()
+{
+	Attack();
+}
+
+
+void AEHSurvivorCharacter::OnRep_Attack()
+{
+	
+}
+// ------------------
+
+// Item : 임시 디버그용 
+void AEHSurvivorCharacter::Debug_TakeDamage()
+{
+	if (!AttributeComp) return;
+	AttributeComp->ApplyDamage(50.f); // 테스트값: 50
+	Debug_PrintHealth();
+}
+
+void AEHSurvivorCharacter::Debug_PrintHealth() const
+{
+	if (!AttributeComp) return;
+	// 접근자 이름은 실제 컴포넌트에 맞게 사용(예: GetHealth()/GetMaxHealth())
+	const float Cur = AttributeComp->GetHealth();
+	const float Max = AttributeComp->MaxHealth;
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			/*Key*/ -1, /*Time*/ 1.5f, FColor::Yellow,
+			FString::Printf(TEXT("[HP] %.0f / %.0f"), Cur, Max));
+	}
+}
+void AEHSurvivorCharacter::UseSlot0()
+{
+	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+	{
+		Inv->UseItemBySlot(0); // 1번 키 → 슬롯 0
+	}
+}
+
+void AEHSurvivorCharacter::UseSlot1()
+{
+	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+	{
+		Inv->UseItemBySlot(1); // 2번 키 → 슬롯 1
+	}
+}
