@@ -13,12 +13,27 @@
 #include "Engine/DamageEvents.h"
 #include "Kismet/GameplayStatics.h"
 #include "Item/Inventory/InventoryComponent.h"
+#include "Net/UnrealNetwork.h"
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
 	:InterActionLength(300.0f)
+	, bIsAttack(false)
+	, MeleeAttackMontagePlayTime(0.f)
 {
 	PrimaryActorTick.bCanEverTick = true;
+	// 레플리케이션 설정
+	bReplicates = true;
+	
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->SetIsReplicated(true);
+	}
 
+	if (GetMesh())
+	{
+		GetMesh()->SetIsReplicated(true);
+	}
+	
 	// 속성 컴포넌트 생성
 	AttributeComp = CreateDefaultSubobject<UAttributeComponent>(TEXT("AttributeComp"));
 
@@ -66,6 +81,19 @@ void AEHSurvivorCharacter::BeginPlay()
 	
 		EILPS->AddMappingContext(InputMappingContext, 0);
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("ROLE: %d, RemoteRole: %d, NetMode: %d, Character: %s"),
+	(int32)GetLocalRole(),
+	(int32)GetRemoteRole(),
+	(int32)GetNetMode(),
+	*GetName());
+}
+
+void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	DOREPLIFETIME(AEHSurvivorCharacter, bIsAttack);
 }
 
 void AEHSurvivorCharacter::Tick(float DeltaTime)
@@ -232,6 +260,9 @@ void AEHSurvivorCharacter::Attack()
 		return;
 	}
 
+	bIsAttack = true;
+	OnRep_Attack();
+
 	FVector Start = GetActorLocation() + FVector(0, 0, -30);
 	FVector Forward = GetActorForwardVector();
 	FVector End = Start + (Forward * 300.f);
@@ -264,7 +295,13 @@ void AEHSurvivorCharacter::ServerAttack_Implementation()
 	Attack();
 }
 
+
+void AEHSurvivorCharacter::OnRep_Attack()
+{
+	
+}
 // ------------------
+
 // Item : 임시 디버그용 
 void AEHSurvivorCharacter::Debug_TakeDamage()
 {
