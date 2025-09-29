@@ -7,6 +7,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "gimmick/Door/MultiplayDoor.h"
+#include "gimmick/Generators/Generators.h"
+#include "gimmick/Keypad/MultiKeypad.h"
 #include "DrawDebugHelpers.h"
 #include "Item/Chest/Chest.h"
 #include "GameFramework/DamageType.h"
@@ -20,6 +22,7 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	, bIsAttack(false)
 	, MeleeAttackMontagePlayTime(0.f)
 	,Health(MaxHealth)
+	, InteractActor(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	// 레플리케이션 설정
@@ -95,6 +98,7 @@ void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
 	DOREPLIFETIME(AEHSurvivorCharacter, bIsAttack);
+	DOREPLIFETIME(AEHSurvivorCharacter, bIsInteracting);
 }
 
 float AEHSurvivorCharacter::TakeDamage(float DamageAmount,
@@ -172,6 +176,8 @@ void AEHSurvivorCharacter::Move(const FInputActionValue& value)
 
 	AddMovementInput(ForwardDirection, InMovementVector.X);
 	AddMovementInput(RightDirection, InMovementVector.Y);
+
+	if (bIsInteracting) ServerRPCCancelInteract();
 }
 
 void AEHSurvivorCharacter::Look(const FInputActionValue& value)
@@ -238,10 +244,15 @@ void AEHSurvivorCharacter::EndCross(const FInputActionValue& value)
 // ------------------
 
 // ------상호작용------
-void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
+void AEHSurvivorCharacter::StartInteraction()
 {
-	bIsInteracting = true;
-
+	//bIsInteracting = true;
+	if (!HasAuthority())
+	{
+		ServerRPCInteract();
+		return;
+	}
+	
 	const FVector LineTraceStart = CameraComp->GetComponentLocation();
 	const FVector LineTraceEnd = LineTraceStart + FVector(CameraComp->GetForwardVector()*InterActionLength);
 
@@ -259,6 +270,24 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 			{
 				ServerRPCInteractionDoorOnPawn(Door);
 			}
+			if (AGenerators* Generator = Cast<AGenerators>(HitActor))
+			{
+				if (!bIsInteracting)
+				{
+					bIsInteracting = true;
+					InteractActor = Generator;
+					ServerRPCStartInteract();
+				}
+			}
+			if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(HitActor))
+			{
+				if (!bIsInteracting)
+				{
+					bIsInteracting = true;
+					InteractActor = Keypad;
+					ServerRPCStartInteract();
+				}
+			}
 		}
 	}
 	else
@@ -270,6 +299,39 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 void AEHSurvivorCharacter::ServerRPCInteractionDoorOnPawn_Implementation(class AMultiplayDoor* Door)
 {
 	Door->InterActionDoor();
+}
+// ------------------
+
+// -------발전기, 키패드 상호작용-------
+void AEHSurvivorCharacter::ServerRPCStartInteract_Implementation()
+{
+	if (AGenerators* Generator = Cast<AGenerators>(InteractActor))
+	{
+		Generator->StartRepair();
+	}
+	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
+	{
+		Keypad->StartProgress();
+	}
+}
+
+void AEHSurvivorCharacter::ServerRPCCancelInteract_Implementation()
+{
+	if (AGenerators* Generator = Cast<AGenerators>(InteractActor))
+	{
+		Generator->CancelRepair();
+	}
+	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
+	{
+		Keypad->StopProgress();
+	}
+	InteractActor = nullptr;
+	bIsInteracting = false;
+}
+
+void AEHSurvivorCharacter::ServerRPCInteract_Implementation()
+{
+	StartInteraction();
 }
 // ------------------
 

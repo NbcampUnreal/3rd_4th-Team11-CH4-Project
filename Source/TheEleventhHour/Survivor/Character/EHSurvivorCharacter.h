@@ -72,8 +72,9 @@ protected:
 	
 	void StartCross(const FInputActionValue& value);
 	void EndCross(const FInputActionValue& value);
-		
-	void StartInteraction(const FInputActionValue& value);
+
+	UFUNCTION(BlueprintCallable, Category="Interaction")
+	void StartInteraction();
 	void EndInteraction(const FInputActionValue& value);
 
 	void Walk(const FInputActionValue& value);
@@ -96,7 +97,7 @@ protected:
 	// ------ 상태관리 ------
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
 	bool bIsCrouching;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", Replicated)
 	bool bIsInteracting;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
 	bool bIsWalking;
@@ -122,6 +123,17 @@ protected:
 	float MaxHealth=100;
 	float Health;
 	// ------------------------
+
+	// -------상호작용(발전기, 키패드)--------
+	UFUNCTION(Server,reliable)
+	void ServerRPCStartInteract();
+	UFUNCTION(Server,reliable)
+	void ServerRPCCancelInteract();
+	UFUNCTION(Server,reliable)
+	void ServerRPCInteract();
+	
+	AActor* InteractActor;
+	// -----------------------------
 	
 public:	
 	virtual void Tick(float DeltaTime) override;
