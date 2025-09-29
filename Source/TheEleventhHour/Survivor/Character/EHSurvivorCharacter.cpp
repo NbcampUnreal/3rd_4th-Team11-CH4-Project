@@ -13,12 +13,28 @@
 #include "Engine/DamageEvents.h"
 #include "Kismet/GameplayStatics.h"
 #include "Item/Inventory/InventoryComponent.h"
+#include "Net/UnrealNetwork.h"
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
 	:InterActionLength(300.0f)
+	, bIsAttack(false)
+	, MeleeAttackMontagePlayTime(0.f)
+	,Health(MaxHealth)
 {
 	PrimaryActorTick.bCanEverTick = true;
+	// 레플리케이션 설정
+	bReplicates = true;
+	
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->SetIsReplicated(true);
+	}
 
+	if (GetMesh())
+	{
+		GetMesh()->SetIsReplicated(true);
+	}
+	
 	// 속성 컴포넌트 생성
 	AttributeComp = CreateDefaultSubobject<UAttributeComponent>(TEXT("AttributeComp"));
 
@@ -66,12 +82,55 @@ void AEHSurvivorCharacter::BeginPlay()
 	
 		EILPS->AddMappingContext(InputMappingContext, 0);
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("ROLE: %d, RemoteRole: %d, NetMode: %d, Character: %s"),
+	(int32)GetLocalRole(),
+	(int32)GetRemoteRole(),
+	(int32)GetNetMode(),
+	*GetName());
+}
+
+void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	DOREPLIFETIME(AEHSurvivorCharacter, bIsAttack);
+}
+
+float AEHSurvivorCharacter::TakeDamage(float DamageAmount,
+									   const FDamageEvent& DamageEvent,
+									   AController* EventInstigator,
+									   AActor* DamageCauser)
+{
+	if (!HasAuthority())
+		return 0.f;
+
+	const float ActualDamage = FMath::Max(0.f, DamageAmount);
+	if (ActualDamage <= 0.f)
+		return 0.f;
+
+	// 체력 감소
+	const float OldHealth = Health;
+	Health = FMath::Clamp(Health - ActualDamage, 0.f, MaxHealth);
+
+	
+	Super::TakeDamage(ActualDamage, DamageEvent, EventInstigator, DamageCauser);
+
+	// 사망 처리
+	if (Health <= 0.f)
+	{
+		Destroy(); // 서버에서 파괴 → 클라이언트에도 복제됨
+	}
+
+	// 실제로 적용된 데미지 반환(남은 체력보다 큰 데미지면 깎인 만큼만)
+	return OldHealth - Health;
 }
 
 void AEHSurvivorCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	
 }
 
 // ------인풋 바인딩------
@@ -238,6 +297,9 @@ void AEHSurvivorCharacter::Attack()
 		return;
 	}
 
+	bIsAttack = true;
+	OnRep_Attack();
+
 	FVector Start = GetActorLocation() + FVector(0, 0, -30);
 	FVector Forward = GetActorForwardVector();
 	FVector End = Start + (Forward * 300.f);
@@ -270,7 +332,13 @@ void AEHSurvivorCharacter::ServerAttack_Implementation()
 	Attack();
 }
 
+
+void AEHSurvivorCharacter::OnRep_Attack()
+{
+	
+}
 // ------------------
+
 // Item : 임시 디버그용 
 void AEHSurvivorCharacter::Debug_TakeDamage()
 {
@@ -293,8 +361,6 @@ void AEHSurvivorCharacter::Debug_PrintHealth() const
 			FString::Printf(TEXT("[HP] %.0f / %.0f"), Cur, Max));
 	}
 }
-
-
 void AEHSurvivorCharacter::UseSlot0()
 {
 	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())

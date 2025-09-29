@@ -65,8 +65,6 @@ void AMultiplayDoor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AMultiplayDoor::OpenDoor()
 {
-   TargetLocalRotation = InitialLocalRotation + FRotator(0.0f,OpenYawDelta,0.0f);
-
    if (DoorTimeLine)
    {
       DoorTimeLine->SetPlayRate(1/OpenDuration);
@@ -100,7 +98,6 @@ void AMultiplayDoor::InterActionDoor()
    }
    
 }
-
 
 void AMultiplayDoor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {

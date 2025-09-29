@@ -64,6 +64,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite,Category="Multiplay Door|Timeline")
 	float OpenYawDelta = 90.0f;
 	
+	
 	//초기 로테이터
 	FRotator InitialLocalRotation;
 	//목표 로테이터
@@ -79,4 +80,5 @@ public:
 	
 	UFUNCTION()
 	void OnRep_DoorState();
+	
 };
