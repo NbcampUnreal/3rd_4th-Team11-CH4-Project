@@ -5,24 +5,22 @@
 
 void AWaitingGameMode::PostLogin(APlayerController* NewPlayer)
 {
-	Super::PostLogin(NewPlayer);
+    Super::PostLogin(NewPlayer);
 
-	// 플레이어가 접속하면 PlayerState 확인
-	if (AWaitingPlayerState* PS = NewPlayer->GetPlayerState<AWaitingPlayerState>())
-	{
-		// 🔥 서버(방장)는 자동으로 Ready
-		if (PS->HasAuthority())  
-		{
-			PS->bIsReady = true;
+    // 첫 번째 접속자(Host)만 자동 Ready
+    if (GetNumPlayers() == 1)
+    {
+        if (AWaitingPlayerState* PS = NewPlayer->GetPlayerState<AWaitingPlayerState>())
+        {
+            PS->bIsReady = true;
 
-			// GameState에 즉시 반영
-			if (AWaitingGameState* GS = GetGameState<AWaitingGameState>())
-			{
-				GS->UpdateReadyState();
-				GS->OnPlayerCountUpdated.Broadcast();
-			}
-		}
-	}
+            if (AWaitingGameState* GS = GetGameState<AWaitingGameState>())
+            {
+                GS->UpdateReadyState();
+                GS->OnPlayerCountUpdated.Broadcast(); // UI 갱신
+            }
+        }
+    }
 }
 
 void AWaitingGameMode::Logout(AController* Exiting)
