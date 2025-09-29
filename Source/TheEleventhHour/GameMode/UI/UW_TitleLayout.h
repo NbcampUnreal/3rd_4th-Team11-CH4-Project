@@ -5,7 +5,6 @@
 #include "UW_TitleLayout.generated.h"
 
 class UButton;
-class UEditableText;
 
 UCLASS()
 class THEELEVENTHHOUR_API UUW_TitleLayout : public UUserWidget
@@ -13,24 +12,23 @@ class THEELEVENTHHOUR_API UUW_TitleLayout : public UUserWidget
 	GENERATED_BODY()
 
 public:
-	UUW_TitleLayout(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-
-protected:
 	virtual void NativeConstruct() override;
 
-	UFUNCTION()
-	void OnPlayButtonClicked();
+protected:
+	/** Host 버튼 (맵을 Listen 서버로 열기) */
+	UPROPERTY(meta = (BindWidget))
+	UButton* HostButton;
 
-	UFUNCTION()
-	void OnExitButtonClicked();
+	/** Join 버튼 (추후 세션 참가용으로 확장 가능) */
+	UPROPERTY(meta = (BindWidgetOptional))
+	UButton* JoinButton;
 
 private:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = USTitleWidget, Meta = (AllowPrivateAccess, BindWidget)) 
-	TObjectPtr<UButton> PlayButton;
+	/** Host 버튼 클릭 시 실행 */
+	UFUNCTION()
+	void OnHostClicked();
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = USTitleWidget, Meta = (AllowPrivateAccess, BindWidget))
-	TObjectPtr<UButton> ExitButton;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = USLobbyLevelUI, Meta = (AllowPrivateAccess, BindWidget))
-	TObjectPtr<UEditableText> ServerIPEditableText;
+	/** Join 버튼 클릭 시 실행 (원할 경우 구현) */
+	UFUNCTION()
+	void OnJoinClicked();
 };

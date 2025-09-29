@@ -116,6 +116,12 @@ protected:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
+
+	// -------데미지 관련--------
+	float virtual TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
+	float MaxHealth=100;
+	float Health;
+	// ------------------------
 	
 public:	
 	virtual void Tick(float DeltaTime) override;
@@ -131,4 +137,10 @@ private:
 	void Debug_TakeDamage(); // T 키로 호출
 	void Debug_PrintHealth() const; // 현재 체력 출력
 
+
+//문 네트워킹 관련
+protected:
+	UFUNCTION(Server,reliable)
+	void ServerRPCInteractionDoorOnPawn(class AMultiplayDoor* Door);
+	
 };

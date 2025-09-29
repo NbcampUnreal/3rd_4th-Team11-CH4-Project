@@ -18,7 +18,7 @@ AMurdererCharacter::AMurdererCharacter()
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
 	DamageTypeClass = UDamageType::StaticClass();
-	
+	SetReplicateMovement(true);
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	bUseControllerRotationYaw=false;
 	GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
@@ -60,7 +60,7 @@ void AMurdererCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 
 	tmp->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
 	tmp->BindAction(LookAction, ETriggerEvent::Triggered, this, &ThisClass::Look);
-	tmp->BindAction(AttackAction,ETriggerEvent::Triggered,this, &ThisClass::Attack);
+	tmp->BindAction(AttackAction,ETriggerEvent::Started,this, &ThisClass::Attack);
 	
 }
 
@@ -84,80 +84,114 @@ void AMurdererCharacter::Look(const FInputActionValue& ActionValue)
 	AddControllerPitchInput(Vec.Y);
 }
 
-void AMurdererCharacter::Attack(const FInputActionValue& ActionValue)
+void AMurdererCharacter::Attack_Implementation(const FInputActionValue& ActionValue)
 {
-	if (AttackMontage && GetMesh()->GetAnimInstance())
+	NetMulticast_PlayAttackAnimMontage();
+}
+
+void AMurdererCharacter::NetMulticast_PlayAttackAnimMontage_Implementation()
+{
+	if (GetNetMode()!=NM_DedicatedServer)
 	{
-		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-		UE_LOG(LogTemp,Log,TEXT("sdasd123"));
-		if (!AnimInstance->Montage_IsPlaying(AttackMontage))
+		UE_LOG(LogTemp,Log,TEXT("공격 몽타주 재생 시도"));
+		if (AttackMontage && GetMesh()->GetAnimInstance())
 		{
-			AnimInstance->Montage_Play(AttackMontage);
-			UE_LOG(LogTemp,Log,TEXT("sdasd"));
+			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+			if (!AnimInstance->Montage_IsPlaying(AttackMontage))
+			{
+				AnimInstance->Montage_Play(AttackMontage);
+				UE_LOG(LogTemp,Log,TEXT("공격 몽타주 재생 성공"));
+			}
+		}
+	}
+	if (HasAuthority())
+	{
+		if (AttackMontage)
+		{
+			BeginMeleeSwingWindow();
+			
+			//나중에 비긴 플레이로 넣어주기 지금은 귀찮아
+			FTimerHandle temp;
+			const TArray<FAnimNotifyEvent>& Events = AttackMontage->Notifies;
+			float AttackNotifyTime;
+			for (FAnimNotifyEvent E : Events)
+			{
+				if (E.NotifyName==TEXT("AttackHit"))
+				{
+					AttackNotifyTime=E.GetTriggerTime();
+					UE_LOG(LogTemp,Log,TEXT("%s %f"),*E.NotifyName.ToString(),AttackNotifyTime);
+				}
+			}
+			GetWorldTimerManager().SetTimer(temp,this,&AMurdererCharacter::PerformMeleeHit,AttackNotifyTime,false);
 		}
 	}
 }
-
 void AMurdererCharacter::BeginMeleeSwingWindow()
 {
-	HitActorsThisSwing.Reset();
-
+	if (HasAuthority())
+		HitActorsThisSwing.Reset();
 }
 
 void AMurdererCharacter::PerformMeleeHit()
 {
-	UWorld* World = GetWorld();
-	if (!World) return;
-
-	const FVector TraceStart = GetActorLocation() + FVector(0, 0, 50.f);
-	const FVector TraceEnd   = TraceStart + GetActorForwardVector() * MeleeRange;
-
-	TArray<FHitResult> HitResults;
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(MeleeSweep), false, this);
-
-	const bool bHit = World->SweepMultiByChannel(
-		HitResults,
-		TraceStart,
-		TraceEnd,
-		FQuat::Identity,
-		TraceChannel,
-		FCollisionShape::MakeSphere(MeleeRadius),
-		Params
-	);
-
-	if (bDrawDebug)
+	if (HasAuthority())
 	{
-		DrawDebugLine(World, TraceStart, TraceEnd, FColor::Green, false, 1.5f, 0, 2.f);
-		DrawDebugSphere(World, TraceEnd, MeleeRadius, 16, bHit ? FColor::Red : FColor::Blue, false, 1.5f);
-	}
+		UWorld* World = GetWorld();
+		if (!World) return;
 
-	if (!bHit) return;
+		const FVector TraceStart = GetActorLocation() + FVector(0, 0, 50.f);
+		const FVector TraceEnd   = TraceStart + GetActorForwardVector() * MeleeRange;
 
-	const FVector ShotDir = (TraceEnd - TraceStart).GetSafeNormal();
+		TArray<FHitResult> HitResults;
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(MeleeSweep), false, this);
 
-	for (const FHitResult& HR : HitResults)
-	{
-		AActor* HitActor = HR.GetActor();
-		if (!IsValid(HitActor) || HitActor == this) continue;
-
-		// 같은 스윙에서 중복 타격 방지
-		if (HitActorsThisSwing.Contains(HitActor)) continue;
-
-		// 팀/아군 판정 필요 시 여기서 필터링(ActorHasTag 등)
-
-		UGameplayStatics::ApplyPointDamage(
-			HitActor,
-			MeleeDamage,
-			ShotDir,
-			HR,
-			GetController(),
-			this,
-			DamageTypeClass
+		const bool bHit = World->SweepMultiByChannel(
+			HitResults,
+			TraceStart,
+			TraceEnd,
+			FQuat::Identity,
+			TraceChannel,
+			FCollisionShape::MakeSphere(MeleeRadius),
+			Params
 		);
 
-		HitActorsThisSwing.Add(HitActor);
+		if (bDrawDebug)
+		{
+			DrawDebugLine(World, TraceStart, TraceEnd, FColor::Green, false, 1.5f, 0, 2.f);
+			DrawDebugSphere(World, TraceEnd, MeleeRadius, 16, bHit ? FColor::Red : FColor::Blue, false, 1.5f);
+		}
 
-		// 선택: 이펙트/사운드 
+		if (!bHit) return;
+
+		const FVector ShotDir = (TraceEnd - TraceStart).GetSafeNormal();
+
+		for (const FHitResult& HR : HitResults)
+		{
+			AActor* HitActor = HR.GetActor();
+			if (!IsValid(HitActor) || HitActor == this) continue;
+
+			// 같은 스윙에서 중복 타격 방지
+			if (HitActorsThisSwing.Contains(HitActor)) continue;
+
+			// 팀/아군 판정 필요 시 여기서 필터링(ActorHasTag 등)
+
+			UGameplayStatics::ApplyPointDamage(
+				HitActor,
+				MeleeDamage,
+				ShotDir,
+				HR,
+				GetController(),
+				this,
+				DamageTypeClass
+			);
+
+			HitActorsThisSwing.Add(HitActor);
+
+			// 선택: 이펙트/사운드 
+		}
 	}
+	UE_LOG(LogTemp,Log,TEXT(__FUNCTION__));
+
 }
+
 

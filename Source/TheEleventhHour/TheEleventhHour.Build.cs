@@ -12,10 +12,10 @@ public class TheEleventhHour : ModuleRules
 		{
 			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "NavigationSystem",
 			
-			"UMG", "Slate", "SlateCore",
+			"UMG", "Slate", "SlateCore", "MediaAssets", 
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] {  });
+		PrivateDependencyModuleNames.AddRange(new string[] { "OnlineSubsystem", "OnlineSubsystemUtils" });
 		
 		PublicIncludePaths.AddRange(new string[] { "TheEleventhHour"  });
 	

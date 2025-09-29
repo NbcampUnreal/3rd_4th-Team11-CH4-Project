@@ -2,7 +2,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "TitlePlayerController.generated.h"
+
+class UUW_TitleLayout;
 
 UCLASS()
 class THEELEVENTHHOUR_API ATitlePlayerController : public APlayerController
@@ -11,13 +14,28 @@ class THEELEVENTHHOUR_API ATitlePlayerController : public APlayerController
 
 public:
 	virtual void BeginPlay() override;
+	
+	UFUNCTION(BlueprintCallable)
+	void HostGame(FName MapName = FName("WaitingLevel"), int32 MaxPlayers = 4, bool bIsLAN = false);
 
-	void JoinServer(const FString& InIPAddress);
+	UFUNCTION(BlueprintCallable)
+	void FindAndJoinGame();
+	
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UUW_TitleLayout> TitleLayoutClass;
+	
+	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
 
+	void OnFindSessionsComplete(bool bWasSuccessful);
+
+	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
+	
 private:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = ASUIPlayerController, Meta = (AllowPrivateAccess))
-	TSubclassOf<UUserWidget> UIWidgetClass;
+	IOnlineSessionPtr SessionInterface;
+	TSharedPtr<FOnlineSessionSearch> SessionSearch;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = ASUIPlayerController, Meta = (AllowPrivateAccess))
-	TObjectPtr<UUserWidget> UIWidgetInstance;
+	FName DesiredMapName;
+	UPROPERTY()
+	UUW_TitleLayout* TitleLayoutWidget;
 };
