@@ -17,9 +17,9 @@
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
 	:InterActionLength(300.0f)
-	, bIsAttack(false)
-	, MeleeAttackMontagePlayTime(0.f)
-	,Health(MaxHealth)
+	, bCanAttack(true)
+	, AttackMontagePlayTime(0.f)
+	, Health(MaxHealth)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	// 레플리케이션 설정
@@ -71,6 +71,11 @@ void AEHSurvivorCharacter::BeginPlay()
 		DefaultSpringArmLocation = SpringArm->GetRelativeLocation();
 		CrouchSpringArmLocation = DefaultSpringArmLocation + FVector(0, 0, 48.5);
 	}
+
+	if (IsValid(AttackMontage) == true)
+	{
+		AttackMontagePlayTime = AttackMontage->GetPlayLength();
+	}
 	
 	if (IsLocallyControlled() == true)
 	{
@@ -82,19 +87,13 @@ void AEHSurvivorCharacter::BeginPlay()
 	
 		EILPS->AddMappingContext(InputMappingContext, 0);
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("ROLE: %d, RemoteRole: %d, NetMode: %d, Character: %s"),
-	(int32)GetLocalRole(),
-	(int32)GetRemoteRole(),
-	(int32)GetNetMode(),
-	*GetName());
 }
 
 void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	
-	DOREPLIFETIME(AEHSurvivorCharacter, bIsAttack);
+	DOREPLIFETIME(ThisClass, bCanAttack);
 }
 
 float AEHSurvivorCharacter::TakeDamage(float DamageAmount,
@@ -287,57 +286,87 @@ void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
 // ------------------
 
 // -------공격-------
-void AEHSurvivorCharacter::Attack()
+void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Attack!"));
-
-	if (!HasAuthority())
+	if (true == bCanAttack && GetCharacterMovement()->IsFalling() == false)
 	{
-		ServerAttack();
-		return;
+		ServerRPCAttack();
+	}
+}
+
+void AEHSurvivorCharacter::ServerRPCAttack_Implementation()
+{
+	MulticastRPCAttack();
+}
+
+bool AEHSurvivorCharacter::ServerRPCAttack_Validate()
+{
+	return true;
+}
+
+void AEHSurvivorCharacter::MulticastRPCAttack_Implementation()
+{
+	if (HasAuthority() == true)
+	{
+		bCanAttack = false;
+		
+		OnRep_CanAttack();
+		
+		FTimerHandle Handle;
+		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]()
+		{
+			bCanAttack = true;
+			OnRep_CanAttack();
+		}), AttackMontagePlayTime, false);
 	}
 
-	bIsAttack = true;
-	OnRep_Attack();
+	PlayAttackMontage();
+}
 
-	FVector Start = GetActorLocation() + FVector(0, 0, -30);
-	FVector Forward = GetActorForwardVector();
-	FVector End = Start + (Forward * 300.f);
-
-	FHitResult HitResult;
-	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(this);
-
-	DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 2.0f, 0, 3.0f);
-	if (GetWorld()->LineTraceSingleByChannel(HitResult,Start,End,ECC_WorldDynamic,Params))
+void AEHSurvivorCharacter::OnRep_CanAttack()
+{
+	if (bCanAttack == true)
 	{
-		if (AChest* Chest = Cast<AChest>(HitResult.GetActor()))
-		{
-			UGameplayStatics::ApplyDamage(Chest, 10.f, GetController(), this, nullptr);
-			UE_LOG(LogTemp, Log, TEXT("Chest Attack"));
-		}
+		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 	}
 	else
 	{
-		UE_LOG(LogTemp, Log, TEXT("Attack miss!"));
+		GetCharacterMovement()->SetMovementMode(MOVE_None);
+		
+		FVector Start = GetActorLocation() + FVector(0, 0, -30);
+		FVector Forward = GetActorForwardVector();
+		FVector End = Start + (Forward * 150.f);
+
+		FHitResult HitResult;
+		FCollisionQueryParams Params;
+		Params.AddIgnoredActor(this);
+
+		DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 2.0f, 0, 3.0f);
+		if (GetWorld()->LineTraceSingleByChannel(HitResult,Start,End,ECC_WorldDynamic,Params))
+		{
+			if (AChest* Chest = Cast<AChest>(HitResult.GetActor()))
+			{
+				UGameplayStatics::ApplyDamage(Chest, 10.f, GetController(), this, nullptr);
+				UE_LOG(LogTemp, Log, TEXT("Chest Attack"));
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Log, TEXT("Attack miss!"));
+		}
 	}
 }
-void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value)
-{
-	Attack();
-}
 
-void AEHSurvivorCharacter::ServerAttack_Implementation()
+void AEHSurvivorCharacter::PlayAttackMontage()
 {
-	Attack();
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (IsValid(AnimInstance) == true)
+	{
+		AnimInstance->StopAllMontages(0.f);
+		AnimInstance->Montage_Play(AttackMontage, 1.5f);
+	}
 }
-
-
-void AEHSurvivorCharacter::OnRep_Attack()
-{
-	
-}
-// ------------------
+//------------------
 
 // Item : 임시 디버그용 
 void AEHSurvivorCharacter::Debug_TakeDamage()

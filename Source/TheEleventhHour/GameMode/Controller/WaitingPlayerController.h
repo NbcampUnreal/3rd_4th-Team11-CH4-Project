@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerController.h"
 #include "WaitingPlayerController.generated.h"
 
+class UWaitingLobbyWidget;
 
 UCLASS()
 class THEELEVENTHHOUR_API AWaitingPlayerController : public APlayerController
