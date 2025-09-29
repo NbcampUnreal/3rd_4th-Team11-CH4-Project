@@ -15,7 +15,7 @@ public class TheEleventhHour : ModuleRules
 			"UMG", "Slate", "SlateCore",
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "OnlineSubsystem" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "OnlineSubsystem", "OnlineSubsystemUtils" });
 		
 		PublicIncludePaths.AddRange(new string[] { "TheEleventhHour"  });
 	
