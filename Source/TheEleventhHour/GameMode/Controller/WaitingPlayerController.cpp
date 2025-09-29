@@ -1,3 +1,4 @@
+#include "GameMode/Controller/WaitingPlayerController.h"
 #include "Blueprint/UserWidget.h"
 #include "GameMode/UI/WaitingLobbyWidget.h"
 #include "GameMode/Controller/WaitingPlayerController.h"
