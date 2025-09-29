@@ -9,6 +9,9 @@ void ATitlePlayerController::BeginPlay()
 {
     Super::BeginPlay();
 
+    if (!IsLocalController())
+        return;
+    
     bShowMouseCursor = true;
     FInputModeGameAndUI InputMode;
     InputMode.SetHideCursorDuringCapture(false);
