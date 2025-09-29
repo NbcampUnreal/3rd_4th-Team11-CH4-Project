@@ -18,5 +18,5 @@ public:
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GameFlow")
-	FString NextLevelName = "TestMap"; // 넘어갈 맵 이름
+	FString NextLevelName = "IngameLevel"; // 넘어갈 맵 이름
 };
