@@ -144,6 +144,15 @@ public:
 	UFUNCTION()
 	void UseSlot1();
 
+	// --------- Item : 서버 로직 -----------
+	// 서버 문 열기
+	UFUNCTION(Server, Reliable)
+	void ServerRTryOpenDoorWithKey(class AMultiplayDoor* Door);
+	// 아이템 사용
+	UFUNCTION(Server, Reliable)
+	void ServerUseConsumableSlot(int32 SlotIndex);
+
+
 // Item : 임시 디버그용 
 private:
 	void Debug_TakeDamage(); // T 키로 호출

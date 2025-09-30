@@ -271,8 +271,20 @@ void AEHSurvivorCharacter::StartInteraction()
 				if (Door->GetIsOpenDoor()) return;
 				if (Door->GetIsRemoteDoor()) return;
 				//아이템(키) 소지 여부 확인 및 사용 로직
+				if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+				{
+					if (Inv->ConsumeKey())   // 키가 있으면 true + 소모됨
+					{
+						ServerRTryOpenDoorWithKey(Door); // 서버에서 실제 개방
+					}
+					else
+					{
+						UE_LOG(LogTemp, Warning, TEXT("열쇠가 없어 문을 열 수 없습니다."));
+					}
+				}
+				return;
 				
-				ServerRPCInteractionDoorOnPawn(Door);
+				// ServerRPCInteractionDoorOnPawn(Door);
 			}
 			if (AGenerators* Generator = Cast<AGenerators>(HitActor))
 			{
@@ -431,7 +443,7 @@ void AEHSurvivorCharacter::UseSlot0()
 {
 	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
 	{
-		Inv->UseItemBySlot(0); // 1번 키 → 슬롯 0
+		ServerUseConsumableSlot(0); // 1번 키 → 슬롯 0
 	}
 }
 
@@ -439,6 +451,24 @@ void AEHSurvivorCharacter::UseSlot1()
 {
 	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
 	{
-		Inv->UseItemBySlot(1); // 2번 키 → 슬롯 1
+		ServerUseConsumableSlot(1); // 2번 키 → 슬롯 1
+	}
+}
+void AEHSurvivorCharacter::ServerRTryOpenDoorWithKey_Implementation(AMultiplayDoor* Door)
+{
+	if (Door)
+	{
+		Door->InterActionDoor(); // 서버에서만 실행됨
+	}
+}
+void AEHSurvivorCharacter::ServerUseConsumableSlot_Implementation(int32 SlotIndex)
+{
+	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+	{
+		const bool bOk = Inv->UseItemBySlot(SlotIndex);
+		if (!bOk)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Use] slot %d 사용 실패(빈 슬롯/조건 불만족)"), SlotIndex);
+		}
 	}
 }
