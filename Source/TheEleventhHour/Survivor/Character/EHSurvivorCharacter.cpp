@@ -268,6 +268,10 @@ void AEHSurvivorCharacter::StartInteraction()
 			UE_LOG(LogTemp,Log,TEXT("%s"),*HitActor->GetName());
 			if (AMultiplayDoor* Door = Cast<AMultiplayDoor>(HitActor))
 			{
+				if (Door->GetIsOpenDoor()) return;
+				if (Door->GetIsRemoteDoor()) return;
+				//아이템(키) 소지 여부 확인 및 사용 로직
+				
 				ServerRPCInteractionDoorOnPawn(Door);
 			}
 			if (AGenerators* Generator = Cast<AGenerators>(HitActor))

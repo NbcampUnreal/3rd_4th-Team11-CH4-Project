@@ -1,8 +1,10 @@
 #include "gimmick/Keypad/MultiKeypad.h"
+#include "gimmick/Door/KeypadDoor.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/AudioComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "EngineUtils.h"
 #include "Net/UnrealNetwork.h"
 
 AMultiKeypad::AMultiKeypad()
@@ -83,16 +85,15 @@ void AMultiKeypad::ProgressKeypad()
 	//서버만 해당 로직을 실행함
 	if (!HasAuthority()) return;
 
-	//수리 로직
+	//키패드 입력 로직
 	Progress += ProgressValue;
 
 	//디버깅 메시지
 	MulticastRPCShowProgress();
 	
-	//수리가 완료될 경우
+	//입력이 완료될 경우
 	if (Progress >= 100.f)
 	{
-		//수리 완료(MulticastRPC)
 		MulticastRPCCompleteProgress();
 	}
 }
@@ -104,8 +105,7 @@ void AMultiKeypad::CompleteProgress()
 	bIsCompleted = true;
 	bIsProgressing = false;
 	MulticastRPCStopPlaySound();
-	
-	//추가 완료 로직
+	OpenNearestDoor();
 }
 
 void AMultiKeypad::MulticastRPCCompleteProgress_Implementation()
@@ -130,6 +130,28 @@ void AMultiKeypad::MulticastRPCStopPlaySound_Implementation()
 		AudioComponent->Stop();
 	}
 }
+
+void AMultiKeypad::OpenNearestDoor()
+{
+	float NearestDistance = FLT_MAX;
+	AKeypadDoor* NearestDoor = nullptr;
+
+	for (TActorIterator<AKeypadDoor> It(GetWorld()); It; ++It)
+	{
+		AKeypadDoor* Door = *It;
+		float Distance = FVector::Dist(Door->GetActorLocation(), GetActorLocation());
+
+		if (Distance < NearestDistance)
+		{
+			NearestDistance = Distance;
+			NearestDoor = Door;
+		}
+	}
+
+	if (!NearestDoor) return;
+	NearestDoor->OpenKeypadDoor();
+}
+
 
 //디버깅용
 void AMultiKeypad::MulticastRPCShowProgress_Implementation()

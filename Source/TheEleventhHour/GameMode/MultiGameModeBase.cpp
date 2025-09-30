@@ -6,7 +6,7 @@
 #include "EngineUtils.h"
 
 AMultiGameModeBase::AMultiGameModeBase()
-	:GeneratorCount(5)
+	:GeneratorCount(1)
 {
 }
 

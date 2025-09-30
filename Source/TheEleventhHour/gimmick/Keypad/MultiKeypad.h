@@ -71,6 +71,9 @@ private:
 	//디버깅
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastRPCShowProgress();
+	//문 개방
+	UFUNCTION()
+	void OpenNearestDoor();
 	
 	//입력 진행 여부(Replicated 필요)
 	UPROPERTY(ReplicatedUsing=OnRep_PlaySound)
