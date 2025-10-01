@@ -2,8 +2,6 @@
 #include "Blueprint/UserWidget.h"
 #include "GameMode/UI/WaitingLobbyWidget.h"
 
-
-
 void AWaitingPlayerController::BeginPlay()
 {
 	Super::BeginPlay();

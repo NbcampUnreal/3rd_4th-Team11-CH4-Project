@@ -21,10 +21,56 @@ class THEELEVENTHHOUR_API AEHSurvivorCharacter : public ACharacter
 public:
 	AEHSurvivorCharacter();
 
-	UPROPERTY(ReplicatedUsing = OnRep_Attack)
-	bool bIsAttack;
+#pragma region Attack
+	
+private:
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerRPCAttack();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastRPCAttack();
+
 	UFUNCTION()
-	void OnRep_Attack();
+	void OnRep_CanAttack();
+	void PlayAttackMontage();
+	
+protected:
+	UFUNCTION(BlueprintCallable, Category="Combat")
+	void AttackInput(const FInputActionValue& value);
+	UPROPERTY(ReplicatedUsing = OnRep_CanAttack)
+	uint8 bCanAttack : 1;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> AttackMontage;
+
+	float AttackMontagePlayTime;
+	
+#pragma endregion
+
+#pragma region FastRun
+	UPROPERTY(ReplicatedUsing = OnRep_CanAttack)
+	uint8 bIsRun : 1;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> FastRunMontage;
+#pragma endregion
+
+#pragma region Hit&Death
+	UFUNCTION(NetMulticast, reliable)
+	void MulticastHitMontage();
+	UFUNCTION(NetMulticast, reliable)
+	void MulticastDeathMontage();
+
+	UPROPERTY(BlueprintReadOnly, Replicated)
+	bool bIsDead = false;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UAnimMontage* HitReactMontage;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UAnimMontage* DeathMontage;
+	float DeathMontagePlayTime;
+
+	UFUNCTION()
+	void OnDeathMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+#pragma endregion
 
 protected:
 	virtual void BeginPlay() override;
@@ -78,21 +124,7 @@ protected:
 	void EndInteraction(const FInputActionValue& value);
 
 	void Walk(const FInputActionValue& value);
-
-	UFUNCTION(BlueprintCallable, Category="Combat")
-	void AttackInput(const FInputActionValue& value);
-	void Attack();
 	// --------------------
-
-	// ------ 서버 처리 ------
-	UFUNCTION(Server, Reliable)
-	void ServerAttack();
-	// ----------------------
-
-	// ------ 몽타뉴 설정 ------
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UAnimMontage> AttackMontage;
-	// ----------------------
 	
 	// ------ 상태관리 ------
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
@@ -113,10 +145,7 @@ protected:
 	UAttributeComponent* AttributeComp;
 	// ------------------------
 
-	float MeleeAttackMontagePlayTime;
-
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	
 
 	// -------데미지 관련--------
 	float virtual TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;

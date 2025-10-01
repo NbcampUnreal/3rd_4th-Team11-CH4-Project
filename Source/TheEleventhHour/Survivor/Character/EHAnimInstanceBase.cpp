@@ -29,6 +29,6 @@ void UEHAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
 	bShouldMove = ((OwnerCharacterMovementComponent->GetCurrentAcceleration().IsNearlyZero()) == false) && (3.f < GroundSpeed);
 	bIsFalling = OwnerCharacterMovementComponent->IsFalling();
 	bIsCrouching = OwnerCharacterMovementComponent->IsCrouching();
-	bIsAttack = OwnerCharacter->bIsAttack;
+	//bIsAttack = OwnerCharacter->bIsAttack;
 	//bIsInteracting = OwnerCharacter->bIsInteracting;
 }
