@@ -46,6 +46,32 @@ protected:
 	
 #pragma endregion
 
+#pragma region FastRun
+	UPROPERTY(ReplicatedUsing = OnRep_CanAttack)
+	uint8 bIsRun : 1;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> FastRunMontage;
+#pragma endregion
+
+#pragma region Hit&Death
+	UFUNCTION(NetMulticast, reliable)
+	void MulticastHitMontage();
+	UFUNCTION(NetMulticast, reliable)
+	void MulticastDeathMontage();
+
+	UPROPERTY(BlueprintReadOnly, Replicated)
+	bool bIsDead = false;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UAnimMontage* HitReactMontage;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UAnimMontage* DeathMontage;
+	float DeathMontagePlayTime;
+
+	UFUNCTION()
+	void OnDeathMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+#pragma endregion
+
 protected:
 	virtual void BeginPlay() override;
 

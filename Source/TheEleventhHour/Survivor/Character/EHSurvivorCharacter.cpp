@@ -19,6 +19,7 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	:InterActionLength(300.0f)
 	, bCanAttack(true)
 	, AttackMontagePlayTime(0.f)
+	, DeathMontagePlayTime(0.f)
 	, Health(MaxHealth)
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -76,6 +77,10 @@ void AEHSurvivorCharacter::BeginPlay()
 	{
 		AttackMontagePlayTime = AttackMontage->GetPlayLength();
 	}
+	if (IsValid(DeathMontage) == true)
+	{
+		DeathMontagePlayTime = DeathMontage->GetPlayLength();
+	}
 	
 	if (IsLocallyControlled() == true)
 	{
@@ -96,6 +101,39 @@ void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(ThisClass, bCanAttack);
 }
 
+//--------피격&죽음----------
+void AEHSurvivorCharacter::MulticastHitMontage_Implementation()
+{
+	if (Health <= 0.f) return;
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && HitReactMontage)
+	{
+		// 이미 재생 중이면 중단 후 다시 재생
+		AnimInstance->Montage_Stop(0.1f, HitReactMontage);
+		AnimInstance->Montage_Play(HitReactMontage);
+	}
+}
+
+void AEHSurvivorCharacter::MulticastDeathMontage_Implementation()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && DeathMontage)
+	{
+		AnimInstance->OnMontageEnded.AddDynamic(this, &AEHSurvivorCharacter::OnDeathMontageEnded);
+		AnimInstance->Montage_Play(DeathMontage);
+		GetMesh()->bPauseAnims = true;
+	}
+}
+void AEHSurvivorCharacter::OnDeathMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (bIsDead)
+	{
+		// 죽는 모션 먼저 재생 후 처리 코드
+		Destroy();
+	}
+}
+//----------------------
+
 float AEHSurvivorCharacter::TakeDamage(float DamageAmount,
 									   const FDamageEvent& DamageEvent,
 									   AController* EventInstigator,
@@ -111,16 +149,19 @@ float AEHSurvivorCharacter::TakeDamage(float DamageAmount,
 	// 체력 감소
 	const float OldHealth = Health;
 	Health = FMath::Clamp(Health - ActualDamage, 0.f, MaxHealth);
-
 	
 	Super::TakeDamage(ActualDamage, DamageEvent, EventInstigator, DamageCauser);
-
+	
+	MulticastHitMontage();
+	
 	// 사망 처리
 	if (Health <= 0.f)
 	{
-		Destroy(); // 서버에서 파괴 → 클라이언트에도 복제됨
+		bIsDead = true;
+		MulticastDeathMontage();
+		//Destroy(); // 서버에서 파괴 → 클라이언트에도 복제됨
 	}
-
+	
 	// 실제로 적용된 데미지 반환(남은 체력보다 큰 데미지면 깎인 만큼만)
 	return OldHealth - Health;
 }
@@ -272,16 +313,10 @@ void AEHSurvivorCharacter::ServerRPCInteractionDoorOnPawn_Implementation(class A
 }
 // ------------------
 
-// -------걷기-------
+// -------뛰기 애니메이션 테스트-------
 void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
 {
-	if (bIsCrouching)
-	{
-		return;
-	}
 	
-	bIsWalking = !bIsWalking;
-	GetCharacterMovement()->MaxWalkSpeed = bIsWalking ? 400.f : 600.f;
 }
 // ------------------
 
@@ -317,7 +352,7 @@ void AEHSurvivorCharacter::MulticastRPCAttack_Implementation()
 		{
 			bCanAttack = true;
 			OnRep_CanAttack();
-		}), AttackMontagePlayTime, false);
+		}), AttackMontagePlayTime - 0.8f, false);
 	}
 
 	PlayAttackMontage();
@@ -363,7 +398,7 @@ void AEHSurvivorCharacter::PlayAttackMontage()
 	if (IsValid(AnimInstance) == true)
 	{
 		AnimInstance->StopAllMontages(0.f);
-		AnimInstance->Montage_Play(AttackMontage, 1.5f);
+		AnimInstance->Montage_Play(AttackMontage, 1.3f);
 	}
 }
 //------------------
