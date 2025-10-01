@@ -31,6 +31,10 @@ protected:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Chest|Components")
     UBoxComponent* HitBox;
+    
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Chest|Rules")
+    bool bIgnoreDamageFromMurderer = true;
+
 
     // Health
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Chest|Health")

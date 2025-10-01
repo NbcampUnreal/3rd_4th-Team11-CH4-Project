@@ -2,6 +2,13 @@
 
 #include "GameMode/MultiGameModeBase.h"
 #include "Survivor/Controller/EHSurvivorController.h"
+#include "gimmick/Keypad/MultiKeypad.h"
+#include "EngineUtils.h"
+
+AMultiGameModeBase::AMultiGameModeBase()
+	:GeneratorCount(1)
+{
+}
 
 void AMultiGameModeBase::PostLogin(APlayerController* NewPlayer)
 {
@@ -25,3 +32,21 @@ void AMultiGameModeBase::Logout(AController* Exiting)
 		DeadPlayerControllers.Add(ExitingPlayerController);
 	}
 }
+
+void AMultiGameModeBase::CompletedRepair()
+{
+	GeneratorCount--;
+
+	if (GeneratorCount <= 0)
+	{
+		for (TActorIterator<AMultiKeypad> It(GetWorld()); It; ++It)
+		{
+			AMultiKeypad* Keypad = *It;
+			if (Keypad)
+			{
+				Keypad->SetCanInteract(true);
+			}
+		}
+	}
+}
+

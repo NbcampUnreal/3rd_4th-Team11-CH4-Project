@@ -1,11 +1,12 @@
 #include "ItemSpawnVolume.h"
-
 #include "Item/Chest/Chest.h"
+#include "Item/ItemPickup/ItemPickup.h"
 #include "Components/BoxComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "NavigationSystem.h"
 #include "Engine/World.h"
+#include "TimerManager.h"
 
 AItemSpawnVolume::AItemSpawnVolume()
 {
@@ -61,6 +62,9 @@ bool AItemSpawnVolume::GetRandomPointInVolume(FVector& OutLoc) const
 void AItemSpawnVolume::TrySpawnOne()
 {
     if (!HasAuthority() || !ChestClass) return;
+    
+    if (bChestRespawnCooling) return;
+
     if (CountAliveChests() >= MaxAlive) return;
 
     FVector SpawnLoc;
@@ -69,5 +73,71 @@ void AItemSpawnVolume::TrySpawnOne()
     FActorSpawnParameters Params;
     Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
-    GetWorld()->SpawnActor<AChest>(ChestClass, SpawnLoc, FRotator::ZeroRotator, Params);
+    // 스폰
+    AChest* Spawned = GetWorld()->SpawnActor<AChest>(ChestClass, SpawnLoc, FRotator::ZeroRotator, Params);
+
+    if (Spawned)
+    {
+        Spawned->OnDestroyed.AddDynamic(this, &AItemSpawnVolume::OnChestDestroyed);
+    }
+}
+void AItemSpawnVolume::SpawnItem()
+{
+    if (!bCanSpawn) return;
+
+    if (ItemClasses.Num() > 0)
+    {
+        int32 Index = FMath::RandRange(0, ItemClasses.Num() - 1);
+        if (TSubclassOf<AItemPickup> ItemClass = ItemClasses[Index])
+        {
+            FVector SpawnLocation = GetSpawnLocation();
+            GetWorld()->SpawnActor<AItemPickup>(ItemClass, SpawnLocation, FRotator::ZeroRotator);
+        }
+    }
+
+    bCanSpawn = false;
+    GetWorld()->GetTimerManager().SetTimer(
+        SpawnCooldownHandle,
+        this,
+        &AItemSpawnVolume::ResetSpawn,
+        SpawnCooldown,
+        false
+    );
+}
+
+void AItemSpawnVolume::ResetSpawn()
+{
+    bCanSpawn = true;
+}
+
+FVector AItemSpawnVolume::GetSpawnLocation() const
+{
+    if (!Volume)
+    {
+        return GetActorLocation();
+    }
+
+    const FBoxSphereBounds Bounds = Volume->Bounds;
+    return UKismetMathLibrary::RandomPointInBoundingBox(Bounds.Origin, Bounds.BoxExtent);
+}
+
+void AItemSpawnVolume::OnChestDestroyed(AActor* DestroyedActor)
+{
+    // 이미 쿨다운 중이면 무시
+    if (bChestRespawnCooling) return;
+
+    bChestRespawnCooling = true;
+    GetWorld()->GetTimerManager().SetTimer(
+        ChestRespawnCooldownHandle,
+        this,
+        &AItemSpawnVolume::EndChestRespawnCooldown,
+        ChestRespawnCooldown,
+        false
+    );
+}
+
+// 쿨다운 종료
+void AItemSpawnVolume::EndChestRespawnCooldown()
+{
+    bChestRespawnCooling = false;
 }

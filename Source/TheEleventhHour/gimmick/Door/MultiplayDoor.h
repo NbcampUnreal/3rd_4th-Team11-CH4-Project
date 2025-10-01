@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -17,20 +15,11 @@ class THEELEVENTHHOUR_API AMultiplayDoor : public AActor
 	GENERATED_BODY()
    
 public:   
-	// Sets default values for this actor's properties
 	AMultiplayDoor();
 
 protected:
-
-
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-	UFUNCTION()
-	void HandleTimelineProgress(float Alpha);
-
-	UFUNCTION()
-	void OnDoorInterActionFinished();
 	
 	//기본 컴포넌트
 	UPROPERTY(VisibleAnywhere,BlueprintReadWrite,Category="Multiplay Door")
@@ -44,17 +33,31 @@ protected:
 	UPROPERTY(EditDefaultsOnly,Category="Multiplay Door|TimeLine")
 	TObjectPtr<UCurveFloat> OpenCurve;
 
-	
+	UFUNCTION()
+	void HandleTimelineProgress(float Alpha);
+	UFUNCTION()
+	void OnDoorInterActionFinished();
 	UFUNCTION()
 	void OpenDoor();
-
 	UFUNCTION()
 	void CloseDoor();
+
+	//true일 경우 키패드 연동 문
+	bool bIsRemoteDoor;
+
+	//문 자동 폐쇄 타이머
+	FTimerHandle DoorCloseTimerHandle;
 	
 public:
-	
+	//캐릭터에서 상호작용 시 호출
 	UFUNCTION()
 	void InterActionDoor();
+
+	//문 상태 반환
+	UFUNCTION()
+	bool GetIsOpenDoor() {return bIsOpen;};
+	UFUNCTION()
+	bool GetIsRemoteDoor() {return bIsRemoteDoor;};
 	
 	//문이 열리는데 걸리는 시간
 	UPROPERTY(EditAnywhere, BlueprintReadWrite,Category="Multiplay Door|Timeline")
@@ -63,7 +66,6 @@ public:
 	//목표 각도(문이 열리는 각도)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite,Category="Multiplay Door|Timeline")
 	float OpenYawDelta = 90.0f;
-	
 	
 	//초기 로테이터
 	FRotator InitialLocalRotation;
@@ -77,8 +79,6 @@ public:
 	bool bIsDoorMoving = false;
 	UPROPERTY(ReplicatedUsing = OnRep_DoorState)
 	bool bIsOpen = false;
-	
 	UFUNCTION()
 	void OnRep_DoorState();
-	
 };

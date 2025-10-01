@@ -7,6 +7,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "gimmick/Door/MultiplayDoor.h"
+#include "gimmick/Generators/Generators.h"
+#include "gimmick/Keypad/MultiKeypad.h"
 #include "DrawDebugHelpers.h"
 #include "Item/Chest/Chest.h"
 #include "GameFramework/DamageType.h"
@@ -17,10 +19,11 @@
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
 	:InterActionLength(300.0f)
-	, bCanAttack(true)
-	, AttackMontagePlayTime(0.f)
-	, DeathMontagePlayTime(0.f)
+	, bIsAttack(false)
+	, MeleeAttackMontagePlayTime(0.f)
+  , DeathMontagePlayTime(0.f)
 	, Health(MaxHealth)
+	, InteractActor(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	// 레플리케이션 설정
@@ -97,7 +100,7 @@ void AEHSurvivorCharacter::BeginPlay()
 void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	
+
 	DOREPLIFETIME(ThisClass, bCanAttack);
 }
 
@@ -212,6 +215,8 @@ void AEHSurvivorCharacter::Move(const FInputActionValue& value)
 
 	AddMovementInput(ForwardDirection, InMovementVector.X);
 	AddMovementInput(RightDirection, InMovementVector.Y);
+
+	if (bIsInteracting) ServerRPCCancelInteract();
 }
 
 void AEHSurvivorCharacter::Look(const FInputActionValue& value)
@@ -278,10 +283,15 @@ void AEHSurvivorCharacter::EndCross(const FInputActionValue& value)
 // ------------------
 
 // ------상호작용------
-void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
+void AEHSurvivorCharacter::StartInteraction()
 {
-	bIsInteracting = true;
-
+	//bIsInteracting = true;
+	if (!HasAuthority())
+	{
+		ServerRPCInteract();
+		return;
+	}
+	
 	const FVector LineTraceStart = CameraComp->GetComponentLocation();
 	const FVector LineTraceEnd = LineTraceStart + FVector(CameraComp->GetForwardVector()*InterActionLength);
 
@@ -297,7 +307,41 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 			UE_LOG(LogTemp,Log,TEXT("%s"),*HitActor->GetName());
 			if (AMultiplayDoor* Door = Cast<AMultiplayDoor>(HitActor))
 			{
-				ServerRPCInteractionDoorOnPawn(Door);
+				if (Door->GetIsOpenDoor()) return;
+				if (Door->GetIsRemoteDoor()) return;
+				//아이템(키) 소지 여부 확인 및 사용 로직
+				if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+				{
+					if (Inv->ConsumeKey())   // 키가 있으면 true + 소모됨
+					{
+						ServerRTryOpenDoorWithKey(Door); // 서버에서 실제 개방
+					}
+					else
+					{
+						UE_LOG(LogTemp, Warning, TEXT("열쇠가 없어 문을 열 수 없습니다."));
+					}
+				}
+				return;
+				
+				// ServerRPCInteractionDoorOnPawn(Door);
+			}
+			if (AGenerators* Generator = Cast<AGenerators>(HitActor))
+			{
+				if (!bIsInteracting)
+				{
+					bIsInteracting = true;
+					InteractActor = Generator;
+					ServerRPCStartInteract();
+				}
+			}
+			if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(HitActor))
+			{
+				if (!bIsInteracting)
+				{
+					bIsInteracting = true;
+					InteractActor = Keypad;
+					ServerRPCStartInteract();
+				}
 			}
 		}
 	}
@@ -310,6 +354,39 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 void AEHSurvivorCharacter::ServerRPCInteractionDoorOnPawn_Implementation(class AMultiplayDoor* Door)
 {
 	Door->InterActionDoor();
+}
+// ------------------
+
+// -------발전기, 키패드 상호작용-------
+void AEHSurvivorCharacter::ServerRPCStartInteract_Implementation()
+{
+	if (AGenerators* Generator = Cast<AGenerators>(InteractActor))
+	{
+		Generator->StartRepair();
+	}
+	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
+	{
+		Keypad->StartProgress();
+	}
+}
+
+void AEHSurvivorCharacter::ServerRPCCancelInteract_Implementation()
+{
+	if (AGenerators* Generator = Cast<AGenerators>(InteractActor))
+	{
+		Generator->CancelRepair();
+	}
+	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
+	{
+		Keypad->StopProgress();
+	}
+	InteractActor = nullptr;
+	bIsInteracting = false;
+}
+
+void AEHSurvivorCharacter::ServerRPCInteract_Implementation()
+{
+	StartInteraction();
 }
 // ------------------
 
@@ -429,7 +506,7 @@ void AEHSurvivorCharacter::UseSlot0()
 {
 	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
 	{
-		Inv->UseItemBySlot(0); // 1번 키 → 슬롯 0
+		ServerUseConsumableSlot(0); // 1번 키 → 슬롯 0
 	}
 }
 
@@ -437,6 +514,24 @@ void AEHSurvivorCharacter::UseSlot1()
 {
 	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
 	{
-		Inv->UseItemBySlot(1); // 2번 키 → 슬롯 1
+		ServerUseConsumableSlot(1); // 2번 키 → 슬롯 1
+	}
+}
+void AEHSurvivorCharacter::ServerRTryOpenDoorWithKey_Implementation(AMultiplayDoor* Door)
+{
+	if (Door)
+	{
+		Door->InterActionDoor(); // 서버에서만 실행됨
+	}
+}
+void AEHSurvivorCharacter::ServerUseConsumableSlot_Implementation(int32 SlotIndex)
+{
+	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+	{
+		const bool bOk = Inv->UseItemBySlot(SlotIndex);
+		if (!bOk)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Use] slot %d 사용 실패(빈 슬롯/조건 불만족)"), SlotIndex);
+		}
 	}
 }
