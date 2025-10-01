@@ -24,21 +24,23 @@ public:
 #pragma region Attack
 	
 private:
-	UFUNCTION(Server, Reliable, WithValidation)
+	UFUNCTION(Server, Reliable)
 	void ServerRPCAttack();
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastRPCAttack();
-
-	UFUNCTION()
-	void OnRep_CanAttack();
+	UFUNCTION(Server, Reliable)
+	void ServerAttackTrace();
+	
 	void PlayAttackMontage();
 	
 protected:
-	UFUNCTION(BlueprintCallable, Category="Combat")
+	UFUNCTION(BlueprintCallable, Category="Input")
 	void AttackInput(const FInputActionValue& value);
 	UPROPERTY(ReplicatedUsing = OnRep_CanAttack)
 	uint8 bCanAttack : 1;
-	
+
+	UFUNCTION()
+	void OnRep_CanAttack();
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TObjectPtr<UAnimMontage> AttackMontage;
 
@@ -46,22 +48,16 @@ protected:
 	
 #pragma endregion
 
-#pragma region FastRun
-	UPROPERTY(ReplicatedUsing = OnRep_CanAttack)
-	uint8 bIsRun : 1;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UAnimMontage> FastRunMontage;
-#pragma endregion
-
 #pragma region Hit&Death
+public:
+	UPROPERTY(BlueprintReadOnly, Replicated)
+	bool bIsDead = false;
+protected:
 	UFUNCTION(NetMulticast, reliable)
 	void MulticastHitMontage();
 	UFUNCTION(NetMulticast, reliable)
 	void MulticastDeathMontage();
 
-	UPROPERTY(BlueprintReadOnly, Replicated)
-	bool bIsDead = false;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	UAnimMontage* HitReactMontage;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -149,8 +145,6 @@ protected:
 
 	// -------데미지 관련--------
 	float virtual TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser) override;
-	float MaxHealth=100;
-	float Health;
 	// ------------------------
 
 	// -------상호작용(발전기, 키패드)--------
