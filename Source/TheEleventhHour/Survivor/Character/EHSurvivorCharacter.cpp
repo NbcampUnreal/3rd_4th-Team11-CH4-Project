@@ -19,11 +19,12 @@
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
 	:InterActionLength(300.0f)
-	, bIsAttack(false)
-	, MeleeAttackMontagePlayTime(0.f)
-  , DeathMontagePlayTime(0.f)
-	, Health(MaxHealth)
+	, bCanAttack(true)
+	, AttackMontagePlayTime(0.f)
+	, DeathMontagePlayTime(0.f)
 	, InteractActor(nullptr)
+	, bIsCrouching(false)
+	, bIsInteracting(false)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	// 레플리케이션 설정
@@ -58,10 +59,6 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 450.0f, 0.0f);
 	GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
 	AttributeComp->SetCurrentSpeed(AttributeComp->BaseSpeed);
-
-	bIsCrouching = false;
-	bIsInteracting = false;
-	bIsWalking = false;
 }
 
 void AEHSurvivorCharacter::BeginPlay()
@@ -104,10 +101,9 @@ void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(ThisClass, bCanAttack);
 }
 
-//--------피격&죽음----------
+//============================== 피격, 죽음 ==============================
 void AEHSurvivorCharacter::MulticastHitMontage_Implementation()
 {
-	if (Health <= 0.f) return;
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && HitReactMontage)
 	{
@@ -122,9 +118,9 @@ void AEHSurvivorCharacter::MulticastDeathMontage_Implementation()
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && DeathMontage)
 	{
+		AnimInstance->OnMontageEnded.RemoveDynamic(this, &AEHSurvivorCharacter::OnDeathMontageEnded);
 		AnimInstance->OnMontageEnded.AddDynamic(this, &AEHSurvivorCharacter::OnDeathMontageEnded);
 		AnimInstance->Montage_Play(DeathMontage);
-		GetMesh()->bPauseAnims = true;
 	}
 }
 void AEHSurvivorCharacter::OnDeathMontageEnded(UAnimMontage* Montage, bool bInterrupted)
@@ -135,8 +131,9 @@ void AEHSurvivorCharacter::OnDeathMontageEnded(UAnimMontage* Montage, bool bInte
 		Destroy();
 	}
 }
-//----------------------
+//======================================================================
 
+//============================== 데미지 처리 ==============================
 float AEHSurvivorCharacter::TakeDamage(float DamageAmount,
 									   const FDamageEvent& DamageEvent,
 									   AController* EventInstigator,
@@ -145,29 +142,26 @@ float AEHSurvivorCharacter::TakeDamage(float DamageAmount,
 	if (!HasAuthority())
 		return 0.f;
 
-	const float ActualDamage = FMath::Max(0.f, DamageAmount);
-	if (ActualDamage <= 0.f)
-		return 0.f;
-
-	// 체력 감소
-	const float OldHealth = Health;
-	Health = FMath::Clamp(Health - ActualDamage, 0.f, MaxHealth);
-	
-	Super::TakeDamage(ActualDamage, DamageEvent, EventInstigator, DamageCauser);
-	
-	MulticastHitMontage();
-	
-	// 사망 처리
-	if (Health <= 0.f)
+	if (AttributeComp)
 	{
-		bIsDead = true;
-		MulticastDeathMontage();
-		//Destroy(); // 서버에서 파괴 → 클라이언트에도 복제됨
+		const float CurrentHealth = AttributeComp->GetHealth();
+		AttributeComp->TakeDamage(DamageAmount);
+		const float NewHealth = AttributeComp->GetHealth();
+
+		if (NewHealth <= 0.f && !bIsDead)
+		{
+			bIsDead = true;
+			MulticastDeathMontage();
+		}
+		else
+		{
+			MulticastHitMontage();
+		}
+		return CurrentHealth - NewHealth;
 	}
-	
-	// 실제로 적용된 데미지 반환(남은 체력보다 큰 데미지면 깎인 만큼만)
-	return OldHealth - Health;
+	return 0.f;
 }
+//======================================================================
 
 void AEHSurvivorCharacter::Tick(float DeltaTime)
 {
@@ -176,7 +170,7 @@ void AEHSurvivorCharacter::Tick(float DeltaTime)
 	
 }
 
-// ------인풋 바인딩------
+//============================== 인풋 바인딩 ==============================
 void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -194,9 +188,9 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::AttackInput);
 	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
 }
-// ------------------
+//======================================================================
 
-// ------이동, 마우스------
+//============================== 이동, 시점 ==============================
 void AEHSurvivorCharacter::Move(const FInputActionValue& value)
 {
 	if (IsValid(Controller) == false)
@@ -232,9 +226,9 @@ void AEHSurvivorCharacter::Look(const FInputActionValue& value)
 	AddControllerYawInput(InLookVector.X);
 	AddControllerPitchInput(InLookVector.Y);
 }
-// ------------------
+//======================================================================
 
-// -------앉기-------
+//============================== 앉기 ==============================
 void AEHSurvivorCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
 {
 	Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
@@ -270,9 +264,9 @@ void AEHSurvivorCharacter::ToggleCrouch(const FInputActionValue& value)
 		UE_LOG(LogTemp, Warning, TEXT("Crouch!"));
 	}
 }
-// ------------------
+//======================================================================
 
-// ------파쿠르------
+//============================== 파쿠르(예정) ==============================
 void AEHSurvivorCharacter::StartCross(const FInputActionValue& value)
 {
 }
@@ -280,9 +274,9 @@ void AEHSurvivorCharacter::StartCross(const FInputActionValue& value)
 void AEHSurvivorCharacter::EndCross(const FInputActionValue& value)
 {
 }
-// ------------------
+//======================================================================
 
-// ------상호작용------
+//============================== 상호작용 ==============================
 void AEHSurvivorCharacter::StartInteraction()
 {
 	//bIsInteracting = true;
@@ -355,9 +349,9 @@ void AEHSurvivorCharacter::ServerRPCInteractionDoorOnPawn_Implementation(class A
 {
 	Door->InterActionDoor();
 }
-// ------------------
+//======================================================================
 
-// -------발전기, 키패드 상호작용-------
+//============================== 발전기, 키패드 상호작용 ==============================
 void AEHSurvivorCharacter::ServerRPCStartInteract_Implementation()
 {
 	if (AGenerators* Generator = Cast<AGenerators>(InteractActor))
@@ -388,17 +382,17 @@ void AEHSurvivorCharacter::ServerRPCInteract_Implementation()
 {
 	StartInteraction();
 }
-// ------------------
+//======================================================================
 
-// -------뛰기 애니메이션 테스트-------
+//============================== 테스트용 ==============================
 void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
 {
 	
 }
-// ------------------
+//======================================================================
 
-// -------공격-------
-void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value)
+//============================== 공격 ==============================
+void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value) // 공격 인풋
 {
 	if (true == bCanAttack && GetCharacterMovement()->IsFalling() == false)
 	{
@@ -406,36 +400,58 @@ void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value)
 	}
 }
 
-void AEHSurvivorCharacter::ServerRPCAttack_Implementation()
+void AEHSurvivorCharacter::ServerRPCAttack_Implementation() // 서버 공격(서버에서 실행)
 {
+	// 서버에서 공격 판정
+	ServerAttackTrace();
+	// 애니메이션 동기화
 	MulticastRPCAttack();
-}
 
-bool AEHSurvivorCharacter::ServerRPCAttack_Validate()
-{
-	return true;
-}
+	// 공격 중 이동 불가
+	bCanAttack = false;
+	OnRep_CanAttack();
 
-void AEHSurvivorCharacter::MulticastRPCAttack_Implementation()
-{
-	if (HasAuthority() == true)
+	FTimerHandle Handle;
+	GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]()
 	{
-		bCanAttack = false;
-		
+		bCanAttack = true;
 		OnRep_CanAttack();
-		
-		FTimerHandle Handle;
-		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]()
-		{
-			bCanAttack = true;
-			OnRep_CanAttack();
-		}), AttackMontagePlayTime - 0.8f, false);
-	}
+	}), AttackMontagePlayTime - 0.8f, false);
+}
 
+void AEHSurvivorCharacter::MulticastRPCAttack_Implementation() // 클라에서 애니메이션 재생만
+{
 	PlayAttackMontage();
 }
 
-void AEHSurvivorCharacter::OnRep_CanAttack()
+void AEHSurvivorCharacter::ServerAttackTrace_Implementation() // 공격판정 서버에서만
+{
+	if (!bCanAttack) return;
+	
+	FVector Start = GetActorLocation() + FVector(0, 0, -30);
+	FVector Forward = GetActorForwardVector();
+	FVector End = Start + (Forward * 150.f);
+
+	FHitResult HitResult;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 2.0f, 0, 3.0f);
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_WorldDynamic, Params))
+	{
+		if (AChest* Chest = Cast<AChest>(HitResult.GetActor()))
+		{
+			UGameplayStatics::ApplyDamage(Chest, 10.f, GetController(), this, nullptr);
+			UE_LOG(LogTemp, Log, TEXT("Chest Attack"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("Attack miss!"));
+	}
+}
+
+void AEHSurvivorCharacter::OnRep_CanAttack() // 이동 불가/해제
 {
 	if (bCanAttack == true)
 	{
@@ -444,32 +460,10 @@ void AEHSurvivorCharacter::OnRep_CanAttack()
 	else
 	{
 		GetCharacterMovement()->SetMovementMode(MOVE_None);
-		
-		FVector Start = GetActorLocation() + FVector(0, 0, -30);
-		FVector Forward = GetActorForwardVector();
-		FVector End = Start + (Forward * 150.f);
-
-		FHitResult HitResult;
-		FCollisionQueryParams Params;
-		Params.AddIgnoredActor(this);
-
-		DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 2.0f, 0, 3.0f);
-		if (GetWorld()->LineTraceSingleByChannel(HitResult,Start,End,ECC_WorldDynamic,Params))
-		{
-			if (AChest* Chest = Cast<AChest>(HitResult.GetActor()))
-			{
-				UGameplayStatics::ApplyDamage(Chest, 10.f, GetController(), this, nullptr);
-				UE_LOG(LogTemp, Log, TEXT("Chest Attack"));
-			}
-		}
-		else
-		{
-			UE_LOG(LogTemp, Log, TEXT("Attack miss!"));
-		}
 	}
 }
 
-void AEHSurvivorCharacter::PlayAttackMontage()
+void AEHSurvivorCharacter::PlayAttackMontage() // 애니메이션 재생
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (IsValid(AnimInstance) == true)
@@ -478,7 +472,7 @@ void AEHSurvivorCharacter::PlayAttackMontage()
 		AnimInstance->Montage_Play(AttackMontage, 1.3f);
 	}
 }
-//------------------
+//======================================================================
 
 // Item : 임시 디버그용 
 void AEHSurvivorCharacter::Debug_TakeDamage()
