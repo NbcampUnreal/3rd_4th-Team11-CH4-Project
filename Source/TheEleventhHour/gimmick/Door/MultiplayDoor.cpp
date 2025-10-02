@@ -14,6 +14,7 @@ AMultiplayDoor::AMultiplayDoor()
    PrimaryActorTick.bCanEverTick = false;
    bReplicates = true;
    SetReplicateMovement(false);
+   bIsRemoteDoor = false;
 
    SceneComponent = CreateDefaultSubobject<USceneComponent>("SceneComponent");
    SetRootComponent(SceneComponent);
@@ -65,16 +66,22 @@ void AMultiplayDoor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AMultiplayDoor::OpenDoor()
 {
+   bIsOpen=true;
+   
    if (DoorTimeLine)
    {
       DoorTimeLine->SetPlayRate(1/OpenDuration);
       DoorTimeLine->PlayFromStart();
    }
-   
+
+   if (bIsRemoteDoor) return;
+   GetWorldTimerManager().SetTimer(DoorCloseTimerHandle,this,&AMultiplayDoor::CloseDoor,10.f,false);
 }
 
 void AMultiplayDoor::CloseDoor()
 {
+   bIsOpen=false;
+   
    if (DoorTimeLine)
    {
       DoorTimeLine->ReverseFromEnd();
@@ -88,15 +95,12 @@ void AMultiplayDoor::InterActionDoor()
    
    if (!bIsOpen)
    {
-      bIsOpen=true;
       OpenDoor();
    }
    else if (bIsOpen)
    {
-      bIsOpen=false;
       CloseDoor();
    }
-   
 }
 
 void AMultiplayDoor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const

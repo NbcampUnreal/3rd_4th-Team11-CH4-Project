@@ -16,6 +16,9 @@ public:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	uint8 bIsDead : 1;
+
 protected:
 	UPROPERTY()
 	TObjectPtr<AEHSurvivorCharacter> OwnerCharacter;
@@ -32,8 +35,4 @@ protected:
 	uint8 bIsFalling : 1;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	uint8 bIsCrouching : 1;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	uint8 bIsAttack : 1;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	uint8 bIsInteracting : 1;
 };
