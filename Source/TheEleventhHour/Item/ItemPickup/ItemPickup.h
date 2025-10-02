@@ -4,13 +4,12 @@
 #include "Item/ItemTypes/ItemTypes.h"
 #include "ItemPickup.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemPicked, EItemType, Item);
 UCLASS()
 class THEELEVENTHHOUR_API AItemPickup : public AActor
 {
 	GENERATED_BODY()
 public:
-	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemPicked, EItemType, Item);
-
 	UPROPERTY(BlueprintAssignable, Category="Pickup")
 	FOnItemPicked OnItemPicked;
 	
