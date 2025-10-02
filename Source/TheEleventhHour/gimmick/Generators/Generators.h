@@ -59,7 +59,7 @@ protected:
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Generators|Properties")
 	TArray<float> RepairEfficiency;
 	//수리 참여 인원(Replicated 필요)
-	UPROPERTY(Replicated, EditAnywhere,BlueprintReadWrite,Category="Generators|Properties")
+	UPROPERTY(ReplicatedUsing = OnRep_RepairCount, EditAnywhere,BlueprintReadWrite,Category="Generators|Properties")
 	int32 RepairCount;
 
 	
@@ -80,6 +80,9 @@ private:
 	//발전기 사운드 중지(Multicast)
 	UFUNCTION(NetMulticast,Reliable)
 	void MulticastRPCStopGeneratorSound();
+	//발전기 작동 표시
+	UFUNCTION()
+	void OnRep_RepairCount();
 	
 	//발전기 수리 디버깅
 	UFUNCTION(NetMulticast, Unreliable)
