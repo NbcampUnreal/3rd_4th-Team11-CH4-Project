@@ -10,13 +10,14 @@ class THEELEVENTHHOUR_API AWaitingGameMode : public AGameModeBase
 	GENERATED_BODY()
 
 public:
+	AWaitingGameMode();
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Game")
+	FString NextLevelName = TEXT("/Game/Levels/Maps/IngameLevel");
+
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
 
 	UFUNCTION(BlueprintCallable)
 	void StartGame();
-
-protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GameFlow")
-	FString NextLevelName = "IngameLevel"; // 넘어갈 맵 이름
 };

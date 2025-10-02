@@ -2,20 +2,22 @@
 #include "GameMode/GameState/WaitingGameState.h"
 #include "Net/UnrealNetwork.h"
 
-void AWaitingPlayerState::ServerSetReady_Implementation(bool bReady)
+void AWaitingPlayerState::ServerSetReady_Implementation(bool bNewReady)
 {
-	bIsReady = bReady;
+	bIsReady = bNewReady;
 
 	if (AWaitingGameState* GS = GetWorld()->GetGameState<AWaitingGameState>())
 	{
-		GS->UpdateReadyState();       // 서버에서 ReadyCount 갱신
-		GS->OnPlayerCountUpdated.Broadcast(); // 🔥 서버가 직접 UI 갱신 알림도 즉시 쏴줌
+		GS->UpdateReadyState();
 	}
 }
 
-bool AWaitingPlayerState::ServerSetReady_Validate(bool bReady)
+void AWaitingPlayerState::OnRep_Ready()
 {
-	return true; // 기본 검증 통과
+	if (AWaitingGameState* GS = GetWorld()->GetGameState<AWaitingGameState>())
+	{
+		GS->UpdateReadyState(); // 클라 UI 즉시 갱신
+	}
 }
 
 void AWaitingPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
