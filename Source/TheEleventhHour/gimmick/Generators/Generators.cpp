@@ -15,7 +15,7 @@ AGenerators::AGenerators()
 
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("MeshComponent");
 	MeshComponent->SetupAttachment(SceneComponent);
-
+	
 	BoxComponent = CreateDefaultSubobject<UBoxComponent>("BoxComponent");
 	BoxComponent->SetupAttachment(SceneComponent);
 	BoxComponent->SetCollisionProfileName(TEXT("Trigger"));
@@ -128,6 +128,7 @@ void AGenerators::CompleteGenerator()
 		{
 			GM->CompletedRepair();
 		}
+		RepairCount = 0;
 	}
 	
 	UGameplayStatics::PlaySoundAtLocation(this,CompleteSound,GetActorLocation());
@@ -153,6 +154,16 @@ void AGenerators::OnRep_PlayingSound()
 	if (bIsStartRepairing && !bIsCompleted)
 	{
 		AudioComponent = UGameplayStatics::SpawnSoundAtLocation(this, GeneratorSound, GetActorLocation());
+	}
+}
+
+void AGenerators::OnRep_RepairCount()
+{
+	if (MeshComponent)
+	{
+		bool bHighlight = (RepairCount > 0);
+		MeshComponent->SetRenderCustomDepth(bHighlight);
+		MeshComponent->SetCustomDepthStencilValue(bHighlight ? 1 : 0);
 	}
 }
 
