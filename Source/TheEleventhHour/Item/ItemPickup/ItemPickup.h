@@ -9,9 +9,15 @@ class THEELEVENTHHOUR_API AItemPickup : public AActor
 {
 	GENERATED_BODY()
 public:
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemPicked, EItemType, Item);
+
+	UPROPERTY(BlueprintAssignable, Category="Pickup")
+	FOnItemPicked OnItemPicked;
+	
 	AItemPickup();
 
 protected:
+	
 	UPROPERTY(VisibleAnywhere) class USphereComponent* Sphere;
 	UPROPERTY(VisibleAnywhere) class UStaticMeshComponent* Mesh;
 
