@@ -10,6 +10,7 @@
 #include "Components/AudioComponent.h"
 #include "Item/ItemPickup/ItemPickup.h"
 #include "Item/ItemLog/ItemLog.h"
+#include "Murderer/MurdererCharacter.h"
 
 AChest::AChest()
 {
@@ -68,6 +69,12 @@ float AChest::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
         UE_LOG(LogTemp, Warning,
             TEXT("Chest::TakeDamage SKIPPED (HasAuthority=%d, CurrentHP=%.1f)"),
             HasAuthority(), CurrentHP);
+        return 0.f;
+    }
+    // 살인마일 때 무시
+    if (bIgnoreDamageFromMurderer && DamageCauser && DamageCauser->IsA(AMurdererCharacter::StaticClass()))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Chest::TakeDamage IGNORED (Murderer cannot break chests)"));
         return 0.f;
     }
     

@@ -17,6 +17,10 @@ class THEELEVENTHHOUR_API AGenerators : public AActor
 public:	
 	AGenerators();
 
+	//EHSurvivorCharacter가 사용함
+	void CancelRepair();
+	void StartRepair();
+	
 protected:
 	virtual void BeginPlay() override;
 
@@ -38,15 +42,6 @@ protected:
 	USoundBase* GeneratorSound;
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Generators|Sounds")
 	USoundBase* CompleteSound;
-
-	//테스트용 오버랩 이벤트
-	UFUNCTION()
-	void OnGeneratorBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-							 UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-							 bool bFromSweep, const FHitResult& SweepResult);
-	UFUNCTION()
-	void OnGeneratorEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-						   UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 	
 	//진동 세기(작동 애니메이션)
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Generators|Properties")
@@ -64,31 +59,34 @@ protected:
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Generators|Properties")
 	TArray<float> RepairEfficiency;
 	//수리 참여 인원(Replicated 필요)
-	UPROPERTY(Replicated, EditAnywhere,BlueprintReadWrite,Category="Generators|Properties")
+	UPROPERTY(ReplicatedUsing = OnRep_RepairCount, EditAnywhere,BlueprintReadWrite,Category="Generators|Properties")
 	int32 RepairCount;
 
 	
 private:
 	//진동 애니메이션
 	UFUNCTION(NetMulticast,Unreliable)
-	void MulticastVibrateAnimation();
+	void MulticastRPCVibrateAnimation();
 	void VibrateAnimation();
 	//발전기 수리
 	void RepairGenerator();
 	//수리 완료
 	UFUNCTION(NetMulticast,Reliable)
-	void MulticastCompleteGenerator();
+	void MulticastRPCCompleteGenerator();
 	void CompleteGenerator();
 	//발전기 사운드 재생(StartRepairing 변수 감지)
 	UFUNCTION()
 	void OnRep_PlayingSound();
 	//발전기 사운드 중지(Multicast)
 	UFUNCTION(NetMulticast,Reliable)
-	void MulticastStopGeneratorSound();
+	void MulticastRPCStopGeneratorSound();
+	//발전기 작동 표시
+	UFUNCTION()
+	void OnRep_RepairCount();
 	
 	//발전기 수리 디버깅
 	UFUNCTION(NetMulticast, Unreliable)
-	void MulticastShowRepairProgress();
+	void MulticastRPCShowRepairProgress();
 	
 	//액터 초기 위치
 	FVector StartLocation;

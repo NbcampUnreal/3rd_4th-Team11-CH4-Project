@@ -65,6 +65,9 @@ bool AItemPickup::TryPickup(AActor* Other)
 	{
 		if (Inv->AddItem(ItemType))
 		{
+			// UI용 이벤트 브로드 캐스트
+			OnItemPicked.Broadcast(ItemType);
+			
 			UE_LOG(LogItem, Log, TEXT("[Pickup] %s 획득"),
 				*UEnum::GetValueAsString(ItemType));
 

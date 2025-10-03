@@ -4,6 +4,7 @@
 #include "Components/AudioComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "GameMode/MultiGameModeBase.h"
 
 AGenerators::AGenerators()
 {
@@ -14,13 +15,10 @@ AGenerators::AGenerators()
 
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("MeshComponent");
 	MeshComponent->SetupAttachment(SceneComponent);
-
+	
 	BoxComponent = CreateDefaultSubobject<UBoxComponent>("BoxComponent");
 	BoxComponent->SetupAttachment(SceneComponent);
 	BoxComponent->SetCollisionProfileName(TEXT("Trigger"));
-	BoxComponent->SetGenerateOverlapEvents(true);
-	BoxComponent->OnComponentBeginOverlap.AddDynamic(this, &AGenerators::OnGeneratorBeginOverlap);
-	BoxComponent->OnComponentEndOverlap.AddDynamic(this, &AGenerators::OnGeneratorEndOverlap);
 
 	AudioComponent = CreateDefaultSubobject<UAudioComponent>("AudioComponent");
 	
@@ -35,6 +33,34 @@ AGenerators::AGenerators()
 
 	//Replicate 활성화
 	bReplicates = true;
+}
+
+void AGenerators::StartRepair()
+{
+	//서버에서만 실행
+	if (!HasAuthority()) return;
+	
+	//수리 완료 여부, 참여 인원 등 유효성 검사
+	if (bIsCompleted) return;
+	if (RepairCount >= 4) return;
+
+	//수리 참여 인원 추가, 수리 타이머 핸들이 없을 경우 초기에 한번만 생성
+	RepairCount++;
+	if (RepairTimerHandle.IsValid()) return;
+	GetWorldTimerManager().SetTimer(RepairTimerHandle,this,&AGenerators::RepairGenerator,RepairDuration,true);
+
+	//발전기를 처음 수리하였을 때 true
+	if (bIsStartRepairing) return;
+	bIsStartRepairing = true;
+}
+
+void AGenerators::CancelRepair()
+{
+	//서버에서만 실행
+	if (!HasAuthority()) return;
+
+	//수리 참여 인원 감소
+	RepairCount--;
 }
 
 void AGenerators::BeginPlay()
@@ -53,41 +79,6 @@ void AGenerators::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 	DOREPLIFETIME(AGenerators, RepairCount);
 	DOREPLIFETIME(AGenerators, bIsStartRepairing);
 	DOREPLIFETIME(AGenerators, bIsCompleted);
-}
-
-void AGenerators::OnGeneratorBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-							 UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-							 bool bFromSweep, const FHitResult& SweepResult)
-{
-	//서버에서만 실행
-	if (!HasAuthority()) return;
-	
-	//액터, 수리 완료 여부, 참여 인원 등 유효성 검사
-	if (!OtherActor||OtherActor==this) return;
-	if (bIsCompleted) return;
-	if (RepairCount >= 4) return;
-
-	//수리 참여 인원 추가, 수리 타이머 핸들이 없을 경우 초기에 한번만 생성
-	RepairCount++;
-	if (RepairTimerHandle.IsValid()) return;
-	GetWorldTimerManager().SetTimer(RepairTimerHandle,this,&AGenerators::RepairGenerator,RepairDuration,true);
-
-	//발전기를 처음 수리하였을 때 true
-	if (bIsStartRepairing) return;
-	bIsStartRepairing = true;
-}
-
-void AGenerators::OnGeneratorEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-						   UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
-{
-	//서버에서만 실행
-	if (!HasAuthority()) return;
-	
-	//유효성 검사
-	if (!OtherActor||OtherActor==this) return;
-
-	//수리 참여 인원 감소
-	RepairCount--;
 }
 
 void AGenerators::VibrateAnimation()
@@ -112,39 +103,47 @@ void AGenerators::RepairGenerator()
 	if (!HasAuthority()) return;
 	
 	//진동 애니메이션(MulticastRPC)
-	MulticastVibrateAnimation();
+	MulticastRPCVibrateAnimation();
 
 	//수리 로직
 	RepairProgress += RepairEfficiency[RepairCount] * RepairValue;
 
 	//디버깅 메시지
-	MulticastShowRepairProgress();
+	MulticastRPCShowRepairProgress();
 	
 	//수리가 완료될 경우
 	if (RepairProgress >= 100.f)
 	{
 		//수리 완료(MulticastRPC)
-		MulticastCompleteGenerator();
+		MulticastRPCCompleteGenerator();
 	}
 }
 
 void AGenerators::CompleteGenerator()
 {
+	if (HasAuthority())
+	{
+		AMultiGameModeBase* GM = Cast<AMultiGameModeBase>(GetWorld()->GetAuthGameMode());
+		if (GM)
+		{
+			GM->CompletedRepair();
+		}
+		RepairCount = 0;
+	}
+	
 	UGameplayStatics::PlaySoundAtLocation(this,CompleteSound,GetActorLocation());
-	MulticastStopGeneratorSound();
+	MulticastRPCStopGeneratorSound();
 	GetWorldTimerManager().ClearTimer(RepairTimerHandle);
 	bIsCompleted = true;
-	
-	//추가 수리 완료 로직(카운트 감소or증가 등)
 }
 
-void AGenerators::MulticastVibrateAnimation_Implementation()
+void AGenerators::MulticastRPCVibrateAnimation_Implementation()
 {
 	VibrateAnimation();
 }
 
 
-void AGenerators::MulticastCompleteGenerator_Implementation()
+void AGenerators::MulticastRPCCompleteGenerator_Implementation()
 {
 	CompleteGenerator();
 }
@@ -158,13 +157,23 @@ void AGenerators::OnRep_PlayingSound()
 	}
 }
 
-void AGenerators::MulticastStopGeneratorSound_Implementation()
+void AGenerators::OnRep_RepairCount()
+{
+	if (MeshComponent)
+	{
+		bool bHighlight = (RepairCount > 0);
+		MeshComponent->SetRenderCustomDepth(bHighlight);
+		MeshComponent->SetCustomDepthStencilValue(bHighlight ? 1 : 0);
+	}
+}
+
+void AGenerators::MulticastRPCStopGeneratorSound_Implementation()
 {
 	AudioComponent->Stop();
 }
 
 //디버깅용
-void AGenerators::MulticastShowRepairProgress_Implementation()
+void AGenerators::MulticastRPCShowRepairProgress_Implementation()
 {
 	if (GEngine)
 	{

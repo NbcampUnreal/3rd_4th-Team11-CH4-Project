@@ -1,37 +1,43 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "GameMode/Controller/TitlePlayerController.h"
+#include "GameMode/UI/TitleUserWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
 
 void ATitlePlayerController::BeginPlay()
 {
-	Super::BeginPlay();
+    Super::BeginPlay();
 
-	if (IsLocalController() == false)
-	{
-		return;
-	}
+    UE_LOG(LogTemp, Warning, TEXT("[TitlePC] BeginPlay executed on %s (Local=%d)"),
+           *GetNameSafe(this),
+           IsLocalController() ? 1 : 0);
 
-	if (IsValid(UIWidgetClass) == true)
-	{
-		UIWidgetInstance = CreateWidget<UUserWidget>(this, UIWidgetClass); 
-		if (IsValid(UIWidgetInstance) == true)
-		{
-			UIWidgetInstance->AddToViewport();
+    if (!IsLocalController())
+        return;
 
-			FInputModeUIOnly Mode;
-			Mode.SetWidgetToFocus(UIWidgetInstance->GetCachedWidget());
-			SetInputMode(Mode);
+    bShowMouseCursor = true;
+    FInputModeGameAndUI InputMode;
+    InputMode.SetHideCursorDuringCapture(false);
+    SetInputMode(InputMode);
 
-			bShowMouseCursor = true;
-		}
-	}
+    // UI 생성
+    Client_ShowTitleUI();
 }
 
-void ATitlePlayerController::JoinServer(const FString& InIPAddress)
+void ATitlePlayerController::Client_ShowTitleUI_Implementation()
 {
-	FName NextLevelName = FName(*InIPAddress);
-	UGameplayStatics::OpenLevel(GetWorld(), NextLevelName, true);
+    if (TitleUserWidgetClass && !TitleUserWidget)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[TitlePC] Creating Title UI on client side: %s"), *GetNameSafe(this));
+
+        bShowMouseCursor = true;
+        FInputModeGameAndUI InputMode;
+        InputMode.SetHideCursorDuringCapture(false);
+        SetInputMode(InputMode);
+
+        TitleUserWidget = CreateWidget<UTitleUserWidget>(this, TitleUserWidgetClass);
+        if (TitleUserWidget)
+        {
+            TitleUserWidget->AddToViewport();
+        }
+    }
 }

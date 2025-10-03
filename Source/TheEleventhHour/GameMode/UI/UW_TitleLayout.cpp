@@ -1,31 +1,37 @@
 #include "GameMode/UI/UW_TitleLayout.h"
 #include "Components/Button.h"
-#include "Components/EditableText.h"
-#include "Kismet/KismetSystemLibrary.h"
 #include "GameMode/Controller/TitlePlayerController.h"
 
-UUW_TitleLayout::UUW_TitleLayout(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-}
-
+// TitleLayout.cpp (UUserWidget)
 void UUW_TitleLayout::NativeConstruct()
 {
-	PlayButton.Get()->OnClicked.AddDynamic(this, &ThisClass::OnPlayButtonClicked);
-	ExitButton.Get()->OnClicked.AddDynamic(this, &ThisClass::OnExitButtonClicked);
-}
+	Super::NativeConstruct();
 
-void UUW_TitleLayout::OnPlayButtonClicked()
-{
-	ATitlePlayerController* PlayerController = GetOwningPlayer<ATitlePlayerController>();
-	if (IsValid(PlayerController) == true)
+	if (HostButton)
 	{
-		FText ServerIP = ServerIPEditableText->GetText();
-		PlayerController->JoinServer(ServerIP.ToString());
+		HostButton->OnClicked.AddDynamic(this, &UUW_TitleLayout::OnHostClicked);
+	}
+
+	if (JoinButton)
+	{
+		JoinButton->OnClicked.AddDynamic(this, &UUW_TitleLayout::OnJoinClicked);
 	}
 }
 
-void UUW_TitleLayout::OnExitButtonClicked()
+void UUW_TitleLayout::OnHostClicked()
 {
-	UKismetSystemLibrary::QuitGame(this, GetOwningPlayer(), EQuitPreference::Quit, false);
+	if (ATitlePlayerController* PC = GetOwningPlayer<ATitlePlayerController>())
+	{
+		// PC->HostGame(FName("WaitingLevel"), 4, true); // 맵 이름, 최대 인원, LAN 여부
+	}
 }
+
+void UUW_TitleLayout::OnJoinClicked()
+{
+	if (ATitlePlayerController* PC = GetOwningPlayer<ATitlePlayerController>())
+	{
+		// 🔹 세션 검색 후 자동으로 첫 번째 세션 참가
+		// PC->FindAndJoinGame();
+	}
+}
+

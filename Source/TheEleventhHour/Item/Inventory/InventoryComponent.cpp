@@ -1,81 +1,113 @@
 // InventoryComponent.cpp
-
 #include "Item/Inventory/InventoryComponent.h"
 #include "Item/ItemLog/ItemLog.h"
 #include "Survivor/Character/AttributeComponent.h"
+#include "Net/UnrealNetwork.h"
+
 UInventoryComponent::UInventoryComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
-	Slots.Init(EItemType::None, 2);
-	UE_LOG(LogItem, Log, TEXT("[Item] LogItem 테스트 출력"));
+    PrimaryComponentTick.bCanEverTick = false;
+    SetIsReplicatedByDefault(true);
+    ConsumableSlots.Init(EItemType::None, 2);
+    UE_LOG(LogItem, Log, TEXT("[Inventory] Key slot + 2 consumables ready"));
+}
+
+void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(UInventoryComponent, bHasKey);
+    DOREPLIFETIME(UInventoryComponent, ConsumableSlots);
 }
 
 bool UInventoryComponent::AddItem(EItemType Item)
 {
-	if (Item == EItemType::None) return false;
+    if (!GetOwner() || Item == EItemType::None) return false;
 
-	for (int32 i=0; i<Slots.Num(); i++)
-	{
-		if (Slots[i] == EItemType::None)
-		{
-			Slots[i] = Item;
-			UE_LOG(LogItem, Log, TEXT("[Inventory] 슬롯%d에 %s 획득"),
-				i, *UEnum::GetValueAsString(Item));
-			return true;
-		}
-	}
+    switch (Item)
+    {
+    case EItemType::Key:
+        if (bHasKey) { UE_LOG(LogItem, Warning, TEXT("[Inventory] already has key")); return false; }
+        bHasKey = true;
+        OnItemAdded.Broadcast(Item);  // 아이템 추가 이벤트
+        OnInventoryUpdated.Broadcast(); // 전체 갱신 이벤트
+        UE_LOG(LogItem, Log, TEXT("[Inventory] got KEY"));
+        return true;
 
-	UE_LOG(LogItem, Warning, TEXT("[Inventory] 가득 차서 %s 획득 실패"),
-		*UEnum::GetValueAsString(Item));
-	return false;
+    case EItemType::Heal:
+    case EItemType::Speed:
+        for (int32 i=0;i<ConsumableSlots.Num();++i)
+        {
+            if (ConsumableSlots[i] == EItemType::None)
+            {
+                ConsumableSlots[i] = Item;
+                OnItemAdded.Broadcast(Item);   // UI
+                OnInventoryUpdated.Broadcast(); // UI
+                UE_LOG(LogItem, Log, TEXT("[Inventory] slot%d <- %s"), i, *UEnum::GetValueAsString(Item));
+                return true;
+            }
+        }
+        UE_LOG(LogItem, Warning, TEXT("[Inventory] consumables full (2/2)"));
+        return false;
+
+    default: return false;
+    }
+}
+
+bool UInventoryComponent::ConsumeKey()
+{
+    if (!bHasKey) { UE_LOG(LogItem, Warning, TEXT("[Inventory] no key to consume")); return false; }
+    bHasKey = false; UE_LOG(LogItem, Log, TEXT("[Inventory] key consumed"));
+    // UI 즉시 갱신
+    OnInventoryUpdated.Broadcast();
+    return true;
 }
 
 bool UInventoryComponent::UseItemBySlot(int32 SlotIndex)
 {
-	if (!Slots.IsValidIndex(SlotIndex) || Slots[SlotIndex] == EItemType::None)
-	{
-		UE_LOG(LogItem, Warning, TEXT("[Inventory] 슬롯%d 비어 있음"), SlotIndex);
-		return false;
-	}
+    if (!ConsumableSlots.IsValidIndex(SlotIndex) || ConsumableSlots[SlotIndex] == EItemType::None)
+    { UE_LOG(LogItem, Warning, TEXT("[Inventory] slot%d empty"), SlotIndex); return false; }
 
-	const EItemType Item = Slots[SlotIndex];
+    const EItemType Item = ConsumableSlots[SlotIndex];
 
-	// ===== 효과 적용 시작 =====
-	AActor* OwnerActor = GetOwner();
-	if (OwnerActor)
-	{
-		if (UAttributeComponent* Attr = OwnerActor->FindComponentByClass<UAttributeComponent>())
-		{
-			switch (Item)
-			{
-			case EItemType::Heal:
-				{
-					const float HealAmount = 50.f; // 테스트 값
-					const float NewHP = FMath::Clamp(Attr->GetHealth() + HealAmount, 0.f, Attr->MaxHealth); // B안(직접 참조)
-					Attr->SetHealth(NewHP);
-					UE_LOG(LogItem, Log, TEXT("[Use] Heal 사용: +%.0f (이제 %.0f/%.0f)"),
-						HealAmount, NewHP, Attr->MaxHealth);
-					break;
-				}
-			case EItemType::Speed:
-				{
-					const float AddSpeed = 200.f;   // 테스트 값
-					const float Duration = 5.f;     // 테스트 값(초)
-					Attr->ApplySpeedBuff(AddSpeed, Duration); // ↓ 2)에서 추가할 헬퍼
-					UE_LOG(LogItem, Log, TEXT("[Use] Speed 사용: +%.0f, 지속 %.1fs"),
-						AddSpeed, Duration);
-					break;
-				}
-			default:
-				break;
-			}
-		}
-	}
-	// ===== 효과 적용 끝 =====
+    // === 효과 적용  ===
+    if (AActor* OwnerActor = GetOwner())
+    {
+        if (UAttributeComponent* Attr = OwnerActor->FindComponentByClass<UAttributeComponent>())
+        {
+            switch (Item)
+            {
+            case EItemType::Heal:
+            {
+                const float HealAmount = 50.f;
+                const float NewHP = FMath::Clamp(Attr->GetHealth()+HealAmount, 0.f, Attr->MaxHealth);
+                Attr->SetHealth(NewHP);
+                UE_LOG(LogItem, Log, TEXT("[Use] Heal +%.0f -> %.0f/%.0f"), HealAmount, NewHP, Attr->MaxHealth);
+                break;
+            }
+            case EItemType::Speed:
+            {
+                const float AddSpeed = 200.f, Duration = 5.f;
+                Attr->ApplySpeedBuff(AddSpeed, Duration);
+                UE_LOG(LogItem, Log, TEXT("[Use] Speed +%.0f for %.1fs"), AddSpeed, Duration);
+                break;
+            }
+            default: break;
+            }
+        }
+    }
+    // === 효과 끝 ===
 
-	UE_LOG(LogItem, Log, TEXT("[Use] 슬롯%d의 %s 사용"),
-		SlotIndex, *UEnum::GetValueAsString(Item));
-
-	Slots[SlotIndex] = EItemType::None; // 사용 후 비우기
-	return true;
+    ConsumableSlots[SlotIndex] = EItemType::None; // 사용 후 비움
+    OnItemUsed.Broadcast(Item, SlotIndex);    // 아이템 사용 이벤트
+    OnInventoryUpdated.Broadcast(); // 전체 갱신 이벤트
+    return true;
+}
+// OnRep 델리게이트 추가
+void UInventoryComponent::OnRep_ConsumableSlots()
+{
+    OnInventoryUpdated.Broadcast();
+}
+void UInventoryComponent::OnRep_HasKey()
+{
+    OnInventoryUpdated.Broadcast();
 }

@@ -4,6 +4,8 @@
 #include "GameFramework/PlayerController.h"
 #include "TitlePlayerController.generated.h"
 
+class UTitleUserWidget;
+
 UCLASS()
 class THEELEVENTHHOUR_API ATitlePlayerController : public APlayerController
 {
@@ -12,12 +14,14 @@ class THEELEVENTHHOUR_API ATitlePlayerController : public APlayerController
 public:
 	virtual void BeginPlay() override;
 
-	void JoinServer(const FString& InIPAddress);
+	UFUNCTION(Client, Reliable)
+	void Client_ShowTitleUI();
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category="UI")
+	TSubclassOf<class UTitleUserWidget> TitleUserWidgetClass;
 
 private:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = ASUIPlayerController, Meta = (AllowPrivateAccess))
-	TSubclassOf<UUserWidget> UIWidgetClass;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = ASUIPlayerController, Meta = (AllowPrivateAccess))
-	TObjectPtr<UUserWidget> UIWidgetInstance;
+	UPROPERTY()
+	UTitleUserWidget* TitleUserWidget;
 };

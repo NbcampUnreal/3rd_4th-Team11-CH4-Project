@@ -7,6 +7,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "gimmick/Door/MultiplayDoor.h"
+#include "gimmick/Generators/Generators.h"
+#include "gimmick/Keypad/MultiKeypad.h"
 #include "DrawDebugHelpers.h"
 #include "Item/Chest/Chest.h"
 #include "GameFramework/DamageType.h"
@@ -17,9 +19,12 @@
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
 	:InterActionLength(300.0f)
-	, bIsAttack(false)
-	, MeleeAttackMontagePlayTime(0.f)
-	,Health(MaxHealth)
+	, bCanAttack(true)
+	, AttackMontagePlayTime(0.f)
+	, DeathMontagePlayTime(0.f)
+	, InteractActor(nullptr)
+	, bIsCrouching(false)
+	, bIsInteracting(false)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	// 레플리케이션 설정
@@ -54,10 +59,6 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 450.0f, 0.0f);
 	GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
 	AttributeComp->SetCurrentSpeed(AttributeComp->BaseSpeed);
-
-	bIsCrouching = false;
-	bIsInteracting = false;
-	bIsWalking = false;
 }
 
 void AEHSurvivorCharacter::BeginPlay()
@@ -71,6 +72,15 @@ void AEHSurvivorCharacter::BeginPlay()
 		DefaultSpringArmLocation = SpringArm->GetRelativeLocation();
 		CrouchSpringArmLocation = DefaultSpringArmLocation + FVector(0, 0, 48.5);
 	}
+
+	if (IsValid(AttackMontage) == true)
+	{
+		AttackMontagePlayTime = AttackMontage->GetPlayLength();
+	}
+	if (IsValid(DeathMontage) == true)
+	{
+		DeathMontagePlayTime = DeathMontage->GetPlayLength();
+	}
 	
 	if (IsLocallyControlled() == true)
 	{
@@ -82,21 +92,48 @@ void AEHSurvivorCharacter::BeginPlay()
 	
 		EILPS->AddMappingContext(InputMappingContext, 0);
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("ROLE: %d, RemoteRole: %d, NetMode: %d, Character: %s"),
-	(int32)GetLocalRole(),
-	(int32)GetRemoteRole(),
-	(int32)GetNetMode(),
-	*GetName());
 }
 
 void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	
-	DOREPLIFETIME(AEHSurvivorCharacter, bIsAttack);
+
+	DOREPLIFETIME(ThisClass, bCanAttack);
 }
 
+//============================== 피격, 죽음 ==============================
+void AEHSurvivorCharacter::MulticastHitMontage_Implementation()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && HitReactMontage)
+	{
+		// 이미 재생 중이면 중단 후 다시 재생
+		AnimInstance->Montage_Stop(0.1f, HitReactMontage);
+		AnimInstance->Montage_Play(HitReactMontage);
+	}
+}
+
+void AEHSurvivorCharacter::MulticastDeathMontage_Implementation()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && DeathMontage)
+	{
+		AnimInstance->OnMontageEnded.RemoveDynamic(this, &AEHSurvivorCharacter::OnDeathMontageEnded);
+		AnimInstance->OnMontageEnded.AddDynamic(this, &AEHSurvivorCharacter::OnDeathMontageEnded);
+		AnimInstance->Montage_Play(DeathMontage);
+	}
+}
+void AEHSurvivorCharacter::OnDeathMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (bIsDead)
+	{
+		// 죽는 모션 먼저 재생 후 처리 코드
+		Destroy();
+	}
+}
+//======================================================================
+
+//============================== 데미지 처리 ==============================
 float AEHSurvivorCharacter::TakeDamage(float DamageAmount,
 									   const FDamageEvent& DamageEvent,
 									   AController* EventInstigator,
@@ -105,26 +142,26 @@ float AEHSurvivorCharacter::TakeDamage(float DamageAmount,
 	if (!HasAuthority())
 		return 0.f;
 
-	const float ActualDamage = FMath::Max(0.f, DamageAmount);
-	if (ActualDamage <= 0.f)
-		return 0.f;
-
-	// 체력 감소
-	const float OldHealth = Health;
-	Health = FMath::Clamp(Health - ActualDamage, 0.f, MaxHealth);
-
-	
-	Super::TakeDamage(ActualDamage, DamageEvent, EventInstigator, DamageCauser);
-
-	// 사망 처리
-	if (Health <= 0.f)
+	if (AttributeComp)
 	{
-		Destroy(); // 서버에서 파괴 → 클라이언트에도 복제됨
-	}
+		const float CurrentHealth = AttributeComp->GetHealth();
+		AttributeComp->TakeDamage(DamageAmount);
+		const float NewHealth = AttributeComp->GetHealth();
 
-	// 실제로 적용된 데미지 반환(남은 체력보다 큰 데미지면 깎인 만큼만)
-	return OldHealth - Health;
+		if (NewHealth <= 0.f && !bIsDead)
+		{
+			bIsDead = true;
+			MulticastDeathMontage();
+		}
+		else
+		{
+			MulticastHitMontage();
+		}
+		return CurrentHealth - NewHealth;
+	}
+	return 0.f;
 }
+//======================================================================
 
 void AEHSurvivorCharacter::Tick(float DeltaTime)
 {
@@ -133,7 +170,7 @@ void AEHSurvivorCharacter::Tick(float DeltaTime)
 	
 }
 
-// ------인풋 바인딩------
+//============================== 인풋 바인딩 ==============================
 void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -151,9 +188,9 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::AttackInput);
 	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
 }
-// ------------------
+//======================================================================
 
-// ------이동, 마우스------
+//============================== 이동, 시점 ==============================
 void AEHSurvivorCharacter::Move(const FInputActionValue& value)
 {
 	if (IsValid(Controller) == false)
@@ -172,6 +209,8 @@ void AEHSurvivorCharacter::Move(const FInputActionValue& value)
 
 	AddMovementInput(ForwardDirection, InMovementVector.X);
 	AddMovementInput(RightDirection, InMovementVector.Y);
+
+	if (bIsInteracting) ServerRPCCancelInteract();
 }
 
 void AEHSurvivorCharacter::Look(const FInputActionValue& value)
@@ -187,9 +226,9 @@ void AEHSurvivorCharacter::Look(const FInputActionValue& value)
 	AddControllerYawInput(InLookVector.X);
 	AddControllerPitchInput(InLookVector.Y);
 }
-// ------------------
+//======================================================================
 
-// -------앉기-------
+//============================== 앉기 ==============================
 void AEHSurvivorCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
 {
 	Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
@@ -225,9 +264,9 @@ void AEHSurvivorCharacter::ToggleCrouch(const FInputActionValue& value)
 		UE_LOG(LogTemp, Warning, TEXT("Crouch!"));
 	}
 }
-// ------------------
+//======================================================================
 
-// ------파쿠르------
+//============================== 파쿠르(예정) ==============================
 void AEHSurvivorCharacter::StartCross(const FInputActionValue& value)
 {
 }
@@ -235,13 +274,18 @@ void AEHSurvivorCharacter::StartCross(const FInputActionValue& value)
 void AEHSurvivorCharacter::EndCross(const FInputActionValue& value)
 {
 }
-// ------------------
+//======================================================================
 
-// ------상호작용------
-void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
+//============================== 상호작용 ==============================
+void AEHSurvivorCharacter::StartInteraction()
 {
-	bIsInteracting = true;
-
+	//bIsInteracting = true;
+	if (!HasAuthority())
+	{
+		ServerRPCInteract();
+		return;
+	}
+	
 	const FVector LineTraceStart = CameraComp->GetComponentLocation();
 	const FVector LineTraceEnd = LineTraceStart + FVector(CameraComp->GetForwardVector()*InterActionLength);
 
@@ -257,7 +301,41 @@ void AEHSurvivorCharacter::StartInteraction(const FInputActionValue& value)
 			UE_LOG(LogTemp,Log,TEXT("%s"),*HitActor->GetName());
 			if (AMultiplayDoor* Door = Cast<AMultiplayDoor>(HitActor))
 			{
-				ServerRPCInteractionDoorOnPawn(Door);
+				if (Door->GetIsOpenDoor()) return;
+				if (Door->GetIsRemoteDoor()) return;
+				//아이템(키) 소지 여부 확인 및 사용 로직
+				if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+				{
+					if (Inv->ConsumeKey())   // 키가 있으면 true + 소모됨
+					{
+						ServerRTryOpenDoorWithKey(Door); // 서버에서 실제 개방
+					}
+					else
+					{
+						UE_LOG(LogTemp, Warning, TEXT("열쇠가 없어 문을 열 수 없습니다."));
+					}
+				}
+				return;
+				
+				// ServerRPCInteractionDoorOnPawn(Door);
+			}
+			if (AGenerators* Generator = Cast<AGenerators>(HitActor))
+			{
+				if (!bIsInteracting)
+				{
+					bIsInteracting = true;
+					InteractActor = Generator;
+					ServerRPCStartInteract();
+				}
+			}
+			if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(HitActor))
+			{
+				if (!bIsInteracting)
+				{
+					bIsInteracting = true;
+					InteractActor = Keypad;
+					ServerRPCStartInteract();
+				}
 			}
 		}
 	}
@@ -271,45 +349,95 @@ void AEHSurvivorCharacter::ServerRPCInteractionDoorOnPawn_Implementation(class A
 {
 	Door->InterActionDoor();
 }
-// ------------------
+//======================================================================
 
-// -------걷기-------
+//============================== 발전기, 키패드 상호작용 ==============================
+void AEHSurvivorCharacter::ServerRPCStartInteract_Implementation()
+{
+	if (AGenerators* Generator = Cast<AGenerators>(InteractActor))
+	{
+		Generator->StartRepair();
+	}
+	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
+	{
+		Keypad->StartProgress();
+	}
+}
+
+void AEHSurvivorCharacter::ServerRPCCancelInteract_Implementation()
+{
+	if (AGenerators* Generator = Cast<AGenerators>(InteractActor))
+	{
+		Generator->CancelRepair();
+	}
+	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
+	{
+		Keypad->StopProgress();
+	}
+	InteractActor = nullptr;
+	bIsInteracting = false;
+}
+
+void AEHSurvivorCharacter::ServerRPCInteract_Implementation()
+{
+	StartInteraction();
+}
+//======================================================================
+
+//============================== 테스트용 ==============================
 void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
 {
-	if (bIsCrouching)
-	{
-		return;
-	}
 	
-	bIsWalking = !bIsWalking;
-	GetCharacterMovement()->MaxWalkSpeed = bIsWalking ? 400.f : 600.f;
 }
-// ------------------
+//======================================================================
 
-// -------공격-------
-void AEHSurvivorCharacter::Attack()
+//============================== 공격 ==============================
+void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value) // 공격 인풋
 {
-	UE_LOG(LogTemp, Warning, TEXT("Attack!"));
-
-	if (!HasAuthority())
+	if (true == bCanAttack && GetCharacterMovement()->IsFalling() == false)
 	{
-		ServerAttack();
-		return;
+		ServerRPCAttack();
 	}
+}
 
-	bIsAttack = true;
-	OnRep_Attack();
+void AEHSurvivorCharacter::ServerRPCAttack_Implementation() // 서버 공격(서버에서 실행)
+{
+	// 서버에서 공격 판정
+	ServerAttackTrace();
+	// 애니메이션 동기화
+	MulticastRPCAttack();
 
+	// 공격 중 이동 불가
+	bCanAttack = false;
+	OnRep_CanAttack();
+
+	FTimerHandle Handle;
+	GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]()
+	{
+		bCanAttack = true;
+		OnRep_CanAttack();
+	}), AttackMontagePlayTime - 0.8f, false);
+}
+
+void AEHSurvivorCharacter::MulticastRPCAttack_Implementation() // 클라에서 애니메이션 재생만
+{
+	PlayAttackMontage();
+}
+
+void AEHSurvivorCharacter::ServerAttackTrace_Implementation() // 공격판정 서버에서만
+{
+	if (!bCanAttack) return;
+	
 	FVector Start = GetActorLocation() + FVector(0, 0, -30);
 	FVector Forward = GetActorForwardVector();
-	FVector End = Start + (Forward * 300.f);
+	FVector End = Start + (Forward * 150.f);
 
 	FHitResult HitResult;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
 
 	DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 2.0f, 0, 3.0f);
-	if (GetWorld()->LineTraceSingleByChannel(HitResult,Start,End,ECC_WorldDynamic,Params))
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_WorldDynamic, Params))
 	{
 		if (AChest* Chest = Cast<AChest>(HitResult.GetActor()))
 		{
@@ -322,22 +450,29 @@ void AEHSurvivorCharacter::Attack()
 		UE_LOG(LogTemp, Log, TEXT("Attack miss!"));
 	}
 }
-void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value)
+
+void AEHSurvivorCharacter::OnRep_CanAttack() // 이동 불가/해제
 {
-	Attack();
+	if (bCanAttack == true)
+	{
+		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+	}
+	else
+	{
+		GetCharacterMovement()->SetMovementMode(MOVE_None);
+	}
 }
 
-void AEHSurvivorCharacter::ServerAttack_Implementation()
+void AEHSurvivorCharacter::PlayAttackMontage() // 애니메이션 재생
 {
-	Attack();
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (IsValid(AnimInstance) == true)
+	{
+		AnimInstance->StopAllMontages(0.f);
+		AnimInstance->Montage_Play(AttackMontage, 1.3f);
+	}
 }
-
-
-void AEHSurvivorCharacter::OnRep_Attack()
-{
-	
-}
-// ------------------
+//======================================================================
 
 // Item : 임시 디버그용 
 void AEHSurvivorCharacter::Debug_TakeDamage()
@@ -365,7 +500,7 @@ void AEHSurvivorCharacter::UseSlot0()
 {
 	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
 	{
-		Inv->UseItemBySlot(0); // 1번 키 → 슬롯 0
+		ServerUseConsumableSlot(0); // 1번 키 → 슬롯 0
 	}
 }
 
@@ -373,6 +508,24 @@ void AEHSurvivorCharacter::UseSlot1()
 {
 	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
 	{
-		Inv->UseItemBySlot(1); // 2번 키 → 슬롯 1
+		ServerUseConsumableSlot(1); // 2번 키 → 슬롯 1
+	}
+}
+void AEHSurvivorCharacter::ServerRTryOpenDoorWithKey_Implementation(AMultiplayDoor* Door)
+{
+	if (Door)
+	{
+		Door->InterActionDoor(); // 서버에서만 실행됨
+	}
+}
+void AEHSurvivorCharacter::ServerUseConsumableSlot_Implementation(int32 SlotIndex)
+{
+	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+	{
+		const bool bOk = Inv->UseItemBySlot(SlotIndex);
+		if (!bOk)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Use] slot %d 사용 실패(빈 슬롯/조건 불만족)"), SlotIndex);
+		}
 	}
 }
