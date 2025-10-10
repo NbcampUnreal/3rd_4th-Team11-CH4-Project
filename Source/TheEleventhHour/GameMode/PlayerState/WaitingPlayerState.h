@@ -10,10 +10,15 @@ class THEELEVENTHHOUR_API AWaitingPlayerState : public APlayerState
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(Replicated, BlueprintReadOnly, Category="Lobby")
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_Ready)
 	bool bIsReady = false;
-	
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerSetReady(bool bReady);
+	UFUNCTION(Server, Reliable)
+	void ServerSetReady(bool bNewReady);
+
+protected:
+	UFUNCTION()
+	void OnRep_Ready();
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };
