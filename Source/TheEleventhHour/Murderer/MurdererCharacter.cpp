@@ -21,24 +21,24 @@ AMurdererCharacter::AMurdererCharacter()
 	bReplicates=true;
 	SetReplicateMovement(true);
 	
-	GetCharacterMovement()->bOrientRotationToMovement = false;
 	GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 500.f, 0.f);
-	bUseControllerRotationYaw=true;
-	
-	// SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>("SpringArmComponent");
-	// SpringArmComponent->TargetArmLength = 400.0f;
-	// SpringArmComponent -> bUsePawnControlRotation = true;
-	// SpringArmComponent -> SetupAttachment(RootComponent);
-
-	Mesh1P = CreateDefaultSubobject<USkeletalMeshComponent>("Mesh1P");
-	Mesh1P -> SetupAttachment(RootComponent);
 	
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>("CameraComponent");
 	CameraComponent -> SetupAttachment(RootComponent);
-	CameraComponent-> bUsePawnControlRotation = true;
-	CameraComponent->SetMobility(EComponentMobility::Type::Movable);
+	CameraComponent -> bUsePawnControlRotation = true;
+	CameraComponent -> SetMobility(EComponentMobility::Type::Movable);
 
+	PivotForMesh1P = CreateDefaultSubobject<USpringArmComponent>("SpringArmComponent");
+	PivotForMesh1P -> SetupAttachment(CameraComponent);
+	PivotForMesh1P -> bInheritPitch=false;
+	PivotForMesh1P -> bInheritYaw=true;
+	PivotForMesh1P -> bInheritRoll=true;
+	PivotForMesh1P->TargetArmLength=0.0f;
+	
+	Mesh1P = CreateDefaultSubobject<USkeletalMeshComponent>("Mesh1P");
+	Mesh1P -> SetupAttachment(PivotForMesh1P);
+	
 	DamageTypeClass = UDamageType::StaticClass();
 }
 
