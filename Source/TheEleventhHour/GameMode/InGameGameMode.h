@@ -21,6 +21,8 @@ class THEELEVENTHHOUR_API AInGameGameMode : public AGameModeBase
 public:
 	AInGameGameMode();
 
+	void CompletedRepair();
+	
 	virtual void PostSeamlessTravel() override;
 	virtual void Tick(float DeltaSeconds) override;
 	
@@ -51,6 +53,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="GameRule")
 	float MatchTickInterval = 1.0f;
 
+	//초기 발전기 카운트
+	int32 GeneratorCount;
+	
 	// ---- 역할 / 스폰 관련 ----
 	void AssignRoles();
 	void StartCountdown();

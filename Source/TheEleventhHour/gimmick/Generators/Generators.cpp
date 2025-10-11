@@ -4,7 +4,8 @@
 #include "Components/AudioComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
-#include "GameMode/MultiGameModeBase.h"
+#include "GameMode/InGameGameMode.h"
+#include "Survivor/Character/EHSurvivorCharacter.h"
 
 AGenerators::AGenerators()
 {
@@ -35,7 +36,7 @@ AGenerators::AGenerators()
 	bReplicates = true;
 }
 
-void AGenerators::StartRepair()
+void AGenerators::StartRepair(AEHSurvivorCharacter* Survivor)
 {
 	//서버에서만 실행
 	if (!HasAuthority()) return;
@@ -45,6 +46,12 @@ void AGenerators::StartRepair()
 	if (RepairCount >= 4) return;
 
 	//수리 참여 인원 추가, 수리 타이머 핸들이 없을 경우 초기에 한번만 생성
+	if (Survivor && !InteractSurvivors.Contains(Survivor))
+	{
+		InteractSurvivors.Add(Survivor);
+		UE_LOG(LogTemp, Log, TEXT("[UI_SIMPLE] Added Survivor: %s (Total: %d)"), 
+			   *Survivor->GetName(), InteractSurvivors.Num());
+	}
 	RepairCount++;
 	if (RepairTimerHandle.IsValid()) return;
 	GetWorldTimerManager().SetTimer(RepairTimerHandle,this,&AGenerators::RepairGenerator,RepairDuration,true);
@@ -54,12 +61,18 @@ void AGenerators::StartRepair()
 	bIsStartRepairing = true;
 }
 
-void AGenerators::CancelRepair()
+void AGenerators::CancelRepair(AEHSurvivorCharacter* Survivor)
 {
 	//서버에서만 실행
 	if (!HasAuthority()) return;
-
+	
 	//수리 참여 인원 감소
+	if (Survivor)
+	{
+		InteractSurvivors.Remove(Survivor);
+		UE_LOG(LogTemp, Log, TEXT("[UI_SIMPLE] Removed Survivor: %s (Total: %d)"), 
+			   *Survivor->GetName(), InteractSurvivors.Num());
+	}
 	RepairCount--;
 }
 
@@ -79,6 +92,7 @@ void AGenerators::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 	DOREPLIFETIME(AGenerators, RepairCount);
 	DOREPLIFETIME(AGenerators, bIsStartRepairing);
 	DOREPLIFETIME(AGenerators, bIsCompleted);
+	DOREPLIFETIME(AGenerators, InteractSurvivors);
 }
 
 void AGenerators::VibrateAnimation()
@@ -107,9 +121,10 @@ void AGenerators::RepairGenerator()
 
 	//수리 로직
 	RepairProgress += RepairEfficiency[RepairCount] * RepairValue;
-
+	
 	//디버깅 메시지
 	MulticastRPCShowRepairProgress();
+	MulticastRPCUpdateUI();
 	
 	//수리가 완료될 경우
 	if (RepairProgress >= 100.f)
@@ -123,7 +138,7 @@ void AGenerators::CompleteGenerator()
 {
 	if (HasAuthority())
 	{
-		AMultiGameModeBase* GM = Cast<AMultiGameModeBase>(GetWorld()->GetAuthGameMode());
+		AInGameGameMode* GM = Cast<AInGameGameMode>(GetWorld()->GetAuthGameMode());
 		if (GM)
 		{
 			GM->CompletedRepair();
@@ -167,6 +182,25 @@ void AGenerators::OnRep_RepairCount()
 	}
 }
 
+void AGenerators::MulticastRPCUpdateUI_Implementation()
+{
+	//플레이어가 상호작용 중인지 확인
+	if (AEHSurvivorCharacter* LocalSurvivor = Cast<AEHSurvivorCharacter>(GetWorld()->GetFirstPlayerController()->GetPawn()))
+	{
+		if (InteractSurvivors.Contains(LocalSurvivor))
+		{
+			FString DeMsg = FString::Printf(TEXT("Now MultiRPCUpdated."));
+			GEngine->AddOnScreenDebugMessage(-1, RepairDuration - 0.01f, FColor::Orange, DeMsg);
+			//UI이벤트
+		}
+		else
+		{
+			FString DeMsg = FString::Printf(TEXT("Now MultiRPCUpdated Failed."));
+			GEngine->AddOnScreenDebugMessage(-1, RepairDuration - 0.01f, FColor::Red, DeMsg);
+		}
+	}
+}
+
 void AGenerators::MulticastRPCStopGeneratorSound_Implementation()
 {
 	AudioComponent->Stop();
@@ -181,3 +215,4 @@ void AGenerators::MulticastRPCShowRepairProgress_Implementation()
 		GEngine->AddOnScreenDebugMessage(-1, RepairDuration - 0.01f, FColor::Green, DebugMsg);
 	}
 }
+

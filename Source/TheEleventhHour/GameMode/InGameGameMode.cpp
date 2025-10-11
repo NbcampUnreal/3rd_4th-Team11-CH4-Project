@@ -2,10 +2,17 @@
 #include "GameMode/GameState/InGameGameState.h"
 #include "GameMode/PlayerState/InGamePlayerState.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerController.h"
+#include "EngineUtils.h"
+#include "GameFramework/PlayerStart.h"
+#include "gimmick/Keypad/MultiKeypad.h"
+#include "EngineUtils.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 
 AInGameGameMode::AInGameGameMode()
+:GeneratorCount(1)
 {
 	bUseSeamlessTravel = true;
 
@@ -260,3 +267,22 @@ void AInGameGameMode::EndGame(const FString& Reason)
 }
 
 #pragma endregion
+
+void AInGameGameMode::CompletedRepair()
+{
+    GeneratorCount--;
+    UE_LOG(LogTemp, Log, TEXT("[InGameGM] CompletedRepair -> GeneratorCount: %d"), GeneratorCount);
+    
+    if (GeneratorCount <= 0)
+    {
+        for (TActorIterator<AMultiKeypad> It(GetWorld()); It; ++It)
+        {
+            AMultiKeypad* Keypad = *It;
+            if (Keypad)
+            {
+                Keypad->SetCanInteract(true);
+                UE_LOG(LogTemp, Log, TEXT("[InGameGM] CompletedRepair -> SetCanInteract(true)"));
+            }
+        }
+    }
+}
