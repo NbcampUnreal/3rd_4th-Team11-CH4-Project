@@ -1,7 +1,9 @@
 #include "GameMode/PlayerState/InGamePlayerState.h"
 #include "GameMode/GameState/WaitingGameState.h"
+#include "GameMode/InGameGameMode.h"
 #include "Net/UnrealNetwork.h"
 #include "Engine/World.h"
+#include "Engine/Engine.h"
 
 AInGamePlayerState::AInGamePlayerState()
 {
@@ -12,59 +14,100 @@ AInGamePlayerState::AInGamePlayerState()
 	bAlwaysRelevant = true;
 }
 
+/* -------------------- Ready 상태 -------------------- */
 void AInGamePlayerState::ServerSetReady_Implementation(bool bNewReady)
 {
+	if (bIsReady == bNewReady)
+		return;
+
 	bIsReady = bNewReady;
+	OnRep_bIsReady();
 
-	UE_LOG(LogTemp, Log, TEXT("[PS] %s Ready=%d"), *GetPlayerName(), bIsReady);
-
-	UpdateGameStateReadyCount(); // 서버가 GameState 업데이트
+	// ✅ 대기실 상태 업데이트 (WaitingGameState)
+	UpdateGameStateReadyCount();
 }
 
 void AInGamePlayerState::OnRep_bIsReady()
 {
-	UE_LOG(LogTemp, Log, TEXT("[PS] OnRep_bIsReady Called : %d"), bIsReady);
-	UpdateGameStateReadyCount(); // 클라이언트 UI 즉시 반영
+	UE_LOG(LogTemp, Log, TEXT("[PS] %s Ready -> %d"), *GetPlayerName(), bIsReady);
+	UpdateGameStateReadyCount();
 }
 
+/* -------------------- Killer -------------------- */
 void AInGamePlayerState::OnRep_bIsKiller()
 {
-	UE_LOG(LogTemp, Log, TEXT("[PS] %s OnRep_bIsKiller -> %s"),
+	UE_LOG(LogTemp, Log, TEXT("[PS] %s Role -> %s"),
 		*GetPlayerName(),
 		bIsKiller ? TEXT("KILLER") : TEXT("SURVIVOR"));
 }
 
+/* -------------------- Survivor 상태 -------------------- */
 void AInGamePlayerState::ServerSetSurvivorState_Implementation(ESurvivorState NewState)
 {
-	SurvivorState = NewState;
+	if (SurvivorState == NewState)
+		return; // 중복 방지
 
-	UE_LOG(LogTemp, Warning, TEXT("[PS] %s SurvivorState -> %s"),
-		*GetPlayerName(),
-		*UEnum::GetValueAsString(NewState));
+	SurvivorState = NewState;
+	OnRep_SurvivorState();
+
+	// ✅ 인게임 상태 변화 → GameMode에 알림
+	NotifyGameModeStateChanged();
+
+	// ✅ 감옥 이동 처리 (서버 전용)
+	if (HasAuthority() && NewState == ESurvivorState::Captured)
+	{
+		if (AInGameGameMode* GM = GetWorld()->GetAuthGameMode<AInGameGameMode>())
+		{
+			GM->SendToPrison(this);
+			UE_LOG(LogTemp, Warning, TEXT("[PS] %s has been captured → SendToPrison() called."), *GetPlayerName());
+		}
+	}
 }
 
 void AInGamePlayerState::OnRep_SurvivorState()
 {
-	UE_LOG(LogTemp, Log, TEXT("[PS] %s OnRep_SurvivorState -> %s"),
-		*GetPlayerName(),
-		*UEnum::GetValueAsString(SurvivorState));
+	const FString StateName = StaticEnum<ESurvivorState>()->GetNameStringByValue((int64)SurvivorState);
+	UE_LOG(LogTemp, Warning, TEXT("[PS] %s SurvivorState -> %s"), *GetPlayerName(), *StateName);
+
+	// 🔹 HUD/UI 반영 가능 (Delegate or Widget Update)
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Cyan,
+			FString::Printf(TEXT("%s 상태: %s"), *GetPlayerName(), *StateName));
+	}
 }
 
+/* -------------------- Waiting 단계 GameState 갱신 -------------------- */
 void AInGamePlayerState::UpdateGameStateReadyCount()
+{
+	if (!GetWorld()) return;
+
+	if (HasAuthority())
+	{
+		if (AWaitingGameState* GS = GetWorld()->GetGameState<AWaitingGameState>())
+		{
+			GS->UpdateReadyState();
+			UE_LOG(LogTemp, Log, TEXT("[PS] (%s) UpdateGameStateReadyCount() called"), *GetPlayerName());
+		}
+	}
+}
+
+/* -------------------- InGame 단계 GameMode 통보 -------------------- */
+void AInGamePlayerState::NotifyGameModeStateChanged()
 {
 	if (HasAuthority())
 	{
-		if (AWaitingGameState* GS = GetWorld() ? GetWorld()->GetGameState<AWaitingGameState>() : nullptr)
+		if (AInGameGameMode* GM = GetWorld()->GetAuthGameMode<AInGameGameMode>())
 		{
-			GS->UpdateReadyState(); // ReadyCount / TotalPlayers 갱신
+			GM->EvaluateAllPlayerStates();
+			GM->CheckVictoryConditions();
+			UE_LOG(LogTemp, Log, TEXT("[PS] (%s) NotifyGameModeStateChanged() → EvaluateAllPlayerStates()"), *GetPlayerName());
 		}
-	}
-	else
-	{
-		// 클라이언트는 서버가 브로드캐스트하는 GameState로 UI 반영
 	}
 }
 
+
+/* -------------------- Replication -------------------- */
 void AInGamePlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
