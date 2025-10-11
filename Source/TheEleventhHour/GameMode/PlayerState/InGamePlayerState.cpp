@@ -1,26 +1,30 @@
 #include "GameMode/PlayerState/InGamePlayerState.h"
 #include "GameMode/GameState/WaitingGameState.h"
 #include "Net/UnrealNetwork.h"
+#include "Engine/World.h"
 
 AInGamePlayerState::AInGamePlayerState()
 {
-	bIsReady = false; 
+	bIsReady = false;
 	bIsKiller = false;
+	SurvivorState = ESurvivorState::Alive;
+
 	bAlwaysRelevant = true;
 }
 
 void AInGamePlayerState::ServerSetReady_Implementation(bool bNewReady)
 {
 	bIsReady = bNewReady;
-	UE_LOG(LogTemp, Log, TEXT("[InGamw dePS] %s Ready=%d"), *GetPlayerName(), bIsReady);
+
+	UE_LOG(LogTemp, Log, TEXT("[PS] %s Ready=%d"), *GetPlayerName(), bIsReady);
 
 	UpdateGameStateReadyCount(); // 서버가 GameState 업데이트
 }
 
 void AInGamePlayerState::OnRep_bIsReady()
 {
-	UE_LOG(LogTemp, Log, TEXT("[InGamePS] OnRep_bIsReady Called : %d"), bIsReady);
-	UpdateGameStateReadyCount(); // 클라이언트도 값 바뀌면 UI 즉시 반영
+	UE_LOG(LogTemp, Log, TEXT("[PS] OnRep_bIsReady Called : %d"), bIsReady);
+	UpdateGameStateReadyCount(); // 클라이언트 UI 즉시 반영
 }
 
 void AInGamePlayerState::OnRep_bIsKiller()
@@ -28,6 +32,22 @@ void AInGamePlayerState::OnRep_bIsKiller()
 	UE_LOG(LogTemp, Log, TEXT("[PS] %s OnRep_bIsKiller -> %s"),
 		*GetPlayerName(),
 		bIsKiller ? TEXT("KILLER") : TEXT("SURVIVOR"));
+}
+
+void AInGamePlayerState::ServerSetSurvivorState_Implementation(ESurvivorState NewState)
+{
+	SurvivorState = NewState;
+
+	UE_LOG(LogTemp, Warning, TEXT("[PS] %s SurvivorState -> %s"),
+		*GetPlayerName(),
+		*UEnum::GetValueAsString(NewState));
+}
+
+void AInGamePlayerState::OnRep_SurvivorState()
+{
+	UE_LOG(LogTemp, Log, TEXT("[PS] %s OnRep_SurvivorState -> %s"),
+		*GetPlayerName(),
+		*UEnum::GetValueAsString(SurvivorState));
 }
 
 void AInGamePlayerState::UpdateGameStateReadyCount()
@@ -41,8 +61,7 @@ void AInGamePlayerState::UpdateGameStateReadyCount()
 	}
 	else
 	{
-		// 클라에서도 UpdateReadyState()를 호출할지 여부는 선택적.
-		// (보통 서버만 호출해도 OnPlayerCountUpdated 델리게이트로 UI가 갱신됩니다)
+		// 클라이언트는 서버가 브로드캐스트하는 GameState로 UI 반영
 	}
 }
 
@@ -52,4 +71,5 @@ void AInGamePlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 
 	DOREPLIFETIME(AInGamePlayerState, bIsReady);
 	DOREPLIFETIME(AInGamePlayerState, bIsKiller);
+	DOREPLIFETIME(AInGamePlayerState, SurvivorState);
 }

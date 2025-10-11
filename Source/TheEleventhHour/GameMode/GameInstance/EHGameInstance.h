@@ -5,7 +5,9 @@
 #include "Interfaces/OnlineSessionInterface.h"
 #include "EHGameInstance.generated.h"
 
-/** 전용 서버에서 세션 생성 / 클라이언트 세션 검색 및 접속 */
+/**
+ * 세션 생성/검색/접속 및 Dedicated 서버 관리
+ */
 UCLASS()
 class THEELEVENTHHOUR_API UEHGameInstance : public UGameInstance
 {
@@ -14,18 +16,23 @@ class THEELEVENTHHOUR_API UEHGameInstance : public UGameInstance
 public:
 	virtual void Init() override;
 
-	UFUNCTION(BlueprintCallable)
-	void FindSessionsAndJoin(); // 클라이언트용
+	/** IP 직결 연결 */
+	void ConnectToIP(const FString& ServerAddress);
 
-private:
-	void HostDedicatedSession();  // 전용 서버용
+	/** 세션 검색 후 자동 참가 */
+	void FindSessionsAndJoin();
 
+protected:
+	/** 서버 전용 Dedicated 세션 호스트 */
+	void HostDedicatedSession();
+
+	// Delegates
 	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
 	void OnFindSessionsComplete(bool bWasSuccessful);
 	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 
-	bool bSessionCreated = false;
-
+private:
 	IOnlineSessionPtr SessionInterface;
 	TSharedPtr<FOnlineSessionSearch> SessionSearch;
+	bool bSessionCreated = false;
 };
