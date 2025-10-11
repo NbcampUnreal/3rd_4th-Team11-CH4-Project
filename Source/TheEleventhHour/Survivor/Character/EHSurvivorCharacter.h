@@ -154,7 +154,8 @@ protected:
 	void ServerRPCCancelInteract();
 	UFUNCTION(Server,reliable)
 	void ServerRPCInteract();
-	
+
+	UPROPERTY(BlueprintReadOnly, Replicated)
 	AActor* InteractActor;
 	// -----------------------------
 	

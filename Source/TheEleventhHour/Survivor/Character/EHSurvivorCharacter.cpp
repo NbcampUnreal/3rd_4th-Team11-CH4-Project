@@ -99,6 +99,8 @@ void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ThisClass, bCanAttack);
+	DOREPLIFETIME(ThisClass, bIsInteracting);
+	DOREPLIFETIME(ThisClass, InteractActor);
 }
 
 //============================== 피격, 죽음 ==============================
@@ -141,7 +143,9 @@ float AEHSurvivorCharacter::TakeDamage(float DamageAmount,
 {
 	if (!HasAuthority())
 		return 0.f;
-
+	
+	if (bIsInteracting) ServerRPCCancelInteract();
+	
 	if (AttributeComp)
 	{
 		const float CurrentHealth = AttributeComp->GetHealth();
@@ -239,6 +243,8 @@ void AEHSurvivorCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHal
 	{
 		SpringArm->SetRelativeLocation(CrouchSpringArmLocation);
 	}
+
+	if (bIsInteracting) ServerRPCCancelInteract();
 }
 void AEHSurvivorCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
 {
@@ -250,6 +256,8 @@ void AEHSurvivorCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfH
 	{
 		SpringArm->SetRelativeLocation(DefaultSpringArmLocation);
 	}
+
+	if (bIsInteracting) ServerRPCCancelInteract();
 }
 void AEHSurvivorCharacter::ToggleCrouch(const FInputActionValue& value)
 {
@@ -356,7 +364,7 @@ void AEHSurvivorCharacter::ServerRPCStartInteract_Implementation()
 {
 	if (AGenerators* Generator = Cast<AGenerators>(InteractActor))
 	{
-		Generator->StartRepair();
+		Generator->StartRepair(this);
 	}
 	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
 	{
@@ -368,11 +376,13 @@ void AEHSurvivorCharacter::ServerRPCCancelInteract_Implementation()
 {
 	if (AGenerators* Generator = Cast<AGenerators>(InteractActor))
 	{
-		Generator->CancelRepair();
+		Generator->CancelRepair(this);
+		UE_LOG(LogTemp, Log, TEXT("Generator Cancel"));
 	}
 	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
 	{
 		Keypad->StopProgress();
+		UE_LOG(LogTemp, Log, TEXT("Keypad Cancel"));
 	}
 	InteractActor = nullptr;
 	bIsInteracting = false;
@@ -398,6 +408,7 @@ void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value) // 공격
 	{
 		ServerRPCAttack();
 	}
+	if (bIsInteracting) ServerRPCCancelInteract();
 }
 
 void AEHSurvivorCharacter::ServerRPCAttack_Implementation() // 서버 공격(서버에서 실행)
