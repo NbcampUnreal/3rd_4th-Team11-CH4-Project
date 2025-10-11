@@ -4,12 +4,14 @@
 #include "GameFramework/GameModeBase.h"
 #include "InGameGameMode.generated.h"
 
+class AInGameGameState;
 class AInGamePlayerState;
 
 /**
- * 인게임 모드
- * - WaitingLevel에서 넘어온 플레이어들의 역할을 Killer / Survivor 로 나누어 Pawn 스폰
- * - SeamlessTravel 후 PlayerState 유지 및 재포제스 처리
+ * InGame 전용 GameMode
+ * - 모든 플레이어 로딩 확인 후 역할(킬러/생존자) 분배
+ * - 5초 카운트다운 이후 킬러 Pawn 교체
+ * - 11분 타이머 및 승패 판정 관리
  */
 UCLASS()
 class THEELEVENTHHOUR_API AInGameGameMode : public AGameModeBase
@@ -19,28 +21,51 @@ class THEELEVENTHHOUR_API AInGameGameMode : public AGameModeBase
 public:
 	AInGameGameMode();
 
-protected:
-	/** 🔹 WaitingLevel → GameLevel 이동 완료 시 호출 (PlayerState 유지됨) */
+	void CompletedRepair();
+	
 	virtual void PostSeamlessTravel() override;
+	virtual void Tick(float DeltaSeconds) override;
+	
+protected:
+	virtual void BeginPlay() override;
 
-	/** 🔹 Killer / Survivor 역할 부여 */
-	void AssignRoles();
+	UFUNCTION()
+	void OnAllPlayersLoaded();
 
-	/** 🔹 이미 잘못 스폰된 Killer만 교체해서 올바른 Pawn으로 재포제스 */
-	void RespawnKillerIfNeeded();
+	/** ✅ Pawn 클래스 (Survivor / Killer) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Pawn")
+	TSubclassOf<APawn> SurvivorPawnClass;
 
-	/** 🔹 Pawn 스폰 시 역할에 맞는 PlayerStart를 찾아서 스폰 */
-	virtual APawn* SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot) override;
-
-	/** 첫 역할 부여 완료 여부 (중복 할당 방지) */
-	bool bRolesAssigned = false;
-
-public:
-	/** Killer로 사용할 Pawn 클래스 */
-	UPROPERTY(EditDefaultsOnly, Category = "Game")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Pawn")
 	TSubclassOf<APawn> KillerPawnClass;
 
-	/** Survivor로 사용할 Pawn 클래스 */
-	UPROPERTY(EditDefaultsOnly, Category = "Game")
-	TSubclassOf<APawn> SurvivorPawnClass;
+	/** ✅ 내부 상태 관리 */
+	bool bMatchStarted = false;
+	int32 CountdownTime = 5;
+	FTimerHandle CountdownTimer;
+	FTimerHandle MatchTimerHandle;
+
+	/** 🔹 11분 게임 제한시간 (초) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="GameRule")
+	int32 TotalMatchTime = 660;
+
+	/** 🔹 Tick 간격 (1초마다 타이머 감소) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="GameRule")
+	float MatchTickInterval = 1.0f;
+
+	//초기 발전기 카운트
+	int32 GeneratorCount;
+	
+	// ---- 역할 / 스폰 관련 ----
+	void AssignRoles();
+	void StartCountdown();
+	void CountdownTick();
+	void ReplaceKillerPawn();
+	void TryStartMatchWhenAllLoaded();
+	
+	// ---- 게임 진행 ----
+	void StartMatchTimer();
+	void MatchTick();
+	void CheckVictoryConditions();
+	void EndGame(const FString& Reason);
 };

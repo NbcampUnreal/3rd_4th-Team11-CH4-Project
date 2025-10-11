@@ -19,7 +19,7 @@ public:
 	
 	void StartProgress();
 	void StopProgress();
-	void SetCanInteract(bool CanInteract) {bIsCanInteract = CanInteract;};
+	void SetCanInteract(bool CanInteract);
 	
 protected:
 	virtual void BeginPlay() override;
@@ -42,6 +42,8 @@ protected:
 	USoundBase* ProgressSound;
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Generators|Sounds")
 	USoundBase* CompleteSound;
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Generators|Sounds")
+	USoundBase* SirenSound;
 	
 	//기본 진척 속도
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Generators|Properties")
@@ -57,6 +59,8 @@ protected:
 	bool bIsCanInteract;
 
 private:
+	UFUNCTION(NetMulticast,Reliable)
+	void MulticastRPCShowKeypad();
 	//키패드 입력
 	void ProgressKeypad();
 	//입력 완료
