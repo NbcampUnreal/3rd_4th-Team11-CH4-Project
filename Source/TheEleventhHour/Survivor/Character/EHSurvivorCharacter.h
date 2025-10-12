@@ -10,6 +10,7 @@ class USpringArmComponent;
 
 class UInputMappingContext;
 class UInputAction;
+class APrisonManager;
 
 struct FInputActionValue;
 
@@ -22,7 +23,6 @@ public:
 	AEHSurvivorCharacter();
 
 #pragma region Attack
-	
 private:
 	UFUNCTION(Server, Reliable)
 	void ServerRPCAttack();
@@ -30,9 +30,8 @@ private:
 	void MulticastRPCAttack();
 	UFUNCTION(Server, Reliable)
 	void ServerAttackTrace();
-	
 	void PlayAttackMontage();
-	
+
 protected:
 	UFUNCTION(BlueprintCallable, Category="Input")
 	void AttackInput(const FInputActionValue& value);
@@ -45,7 +44,6 @@ protected:
 	TObjectPtr<UAnimMontage> AttackMontage;
 
 	float AttackMontagePlayTime;
-	
 #pragma endregion
 
 #pragma region Hit&Death
@@ -96,7 +94,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	// ----- 컴포넌트 ------
+	// ----- 컴포넌트 -----
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component")
 	UCameraComponent* CameraComp;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Component")
@@ -121,32 +119,27 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> AttackAction;
 	// --------------------
-	
+
 	// ------ 스프링암 설정 ------
 	FVector DefaultSpringArmLocation;
 	FVector CrouchSpringArmLocation;
-	
 	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 	// -------------------------
-	
+
 	// ------ 동작함수 ------
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	void Move(const FInputActionValue& value);
 	void Look(const FInputActionValue& value);
-	
 	void ToggleCrouch(const FInputActionValue& value);
-	
 	void StartCross(const FInputActionValue& value);
 	void EndCross(const FInputActionValue& value);
-
 	UFUNCTION(BlueprintCallable, Category="Interaction")
 	void StartInteraction();
 	void EndInteraction(const FInputActionValue& value);
-
 	void Walk(const FInputActionValue& value);
 	// --------------------
-	
+
 	// ------ 상태관리 ------
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
 	bool bIsCrouching;
@@ -179,37 +172,41 @@ protected:
 	void ServerRPCCancelInteract();
 	UFUNCTION(Server,reliable)
 	void ServerRPCInteract();
-	
+	UPROPERTY(BlueprintReadOnly, Replicated)
 	AActor* InteractActor;
 	// -----------------------------
+
+	// --------플레이어 스탯 연동--------
+	UFUNCTION(BlueprintCallable)
+	void UpdateSurvivorState(ESurvivorState NewState);
 	
 public:	
 	virtual void Tick(float DeltaTime) override;
 
 	UFUNCTION()
 	void UseSlot0();
-
 	UFUNCTION()
 	void UseSlot1();
 
 	// --------- Item : 서버 로직 -----------
-	// 서버 문 열기
 	UFUNCTION(Server, Reliable)
 	void ServerRTryOpenDoorWithKey(class AMultiplayDoor* Door);
-	// 아이템 사용
 	UFUNCTION(Server, Reliable)
 	void ServerUseConsumableSlot(int32 SlotIndex);
 
-
-// Item : 임시 디버그용 
-private:
-	void Debug_TakeDamage(); // T 키로 호출
-	void Debug_PrintHealth() const; // 현재 체력 출력
-
-
-//문 네트워킹 관련
 protected:
 	UFUNCTION(Server,reliable)
 	void ServerRPCInteractionDoorOnPawn(class AMultiplayDoor* Door);
-	
+
+private:
+	void Debug_TakeDamage();
+	void Debug_PrintHealth() const;
+
+	/* -------------------- 🔹 추가된 감옥 시스템 관련 -------------------- */
+private:
+	void HandleStateChange(ESurvivorState NewState);  // PlayerState 변경 시 반응
+	void TryRescue();                                 // 감옥 구출 시도
+	UFUNCTION(Server, Reliable)
+	void ServerTryRescue();
+	/* --------------------------------------------------------------- */
 };

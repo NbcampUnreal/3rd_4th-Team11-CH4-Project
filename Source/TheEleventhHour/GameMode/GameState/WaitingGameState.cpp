@@ -1,5 +1,5 @@
 #include "GameMode/GameState/WaitingGameState.h"
-#include "GameMode/PlayerState/WaitingPlayerState.h"
+#include "GameMode/PlayerState/InGamePlayerState.h" // ✅ 통합 PlayerState 사용
 #include "Net/UnrealNetwork.h"
 
 AWaitingGameState::AWaitingGameState()
@@ -8,35 +8,33 @@ AWaitingGameState::AWaitingGameState()
 	TotalPlayers = 0;
 }
 
-void AWaitingGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AWaitingGameState, ReadyCount);
-	DOREPLIFETIME(AWaitingGameState, TotalPlayers);
-}
-
 void AWaitingGameState::UpdateReadyState()
 {
-	if (HasAuthority())
+	int32 NewReady = 0;
+	int32 NewTotal = PlayerArray.Num();
+
+	for (APlayerState* PS : PlayerArray)
 	{
-		int32 NewReady = 0;
-		int32 NewTotal = PlayerArray.Num();
-
-		for (APlayerState* PS : PlayerArray)
+		if (AInGamePlayerState* WPS = Cast<AInGamePlayerState>(PS))
 		{
-			if (AWaitingPlayerState* WPS = Cast<AWaitingPlayerState>(PS))
-			{
-				if (WPS->bIsReady)
-				{
-					NewReady++;
-				}
-			}
+			if (WPS->bIsReady)
+				NewReady++;
 		}
+	}
 
-		ReadyCount = NewReady;
-		TotalPlayers = NewTotal;
+	ReadyCount = NewReady;
+	TotalPlayers = NewTotal;
 
-		OnPlayerCountUpdated.Broadcast(); // 서버에서도 즉시 UI 갱신 요청
+	UE_LOG(LogTemp, Log, TEXT("[GameState] UpdateReadyState -> Ready: %d / Total: %d"), ReadyCount, TotalPlayers);
+
+	// ✅ 클라이언트 UI 갱신용 이벤트 브로드캐스트
+	OnPlayerCountUpdated.Broadcast();
+
+	// ✅ 모든 인원이 Ready면 자동으로 게임 시작
+	if (HasAuthority() && ReadyCount == TotalPlayers && TotalPlayers > 0)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[Server] All players ready! Starting game automatically..."));
+		GetWorld()->ServerTravel(TEXT("/Game/Levels/Maps/IngameLevel"));
 	}
 }
 
@@ -48,4 +46,13 @@ void AWaitingGameState::OnRep_ReadyCount()
 void AWaitingGameState::OnRep_TotalPlayers()
 {
 	OnPlayerCountUpdated.Broadcast();
+}
+
+void AWaitingGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	// ✅ Always notify even if same value (UI 즉시 갱신 보장)
+	DOREPLIFETIME_CONDITION_NOTIFY(AWaitingGameState, ReadyCount, COND_None, REPNOTIFY_Always);
+	DOREPLIFETIME_CONDITION_NOTIFY(AWaitingGameState, TotalPlayers, COND_None, REPNOTIFY_Always);
 }

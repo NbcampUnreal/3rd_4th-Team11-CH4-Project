@@ -163,3 +163,18 @@ void AMultiKeypad::MulticastRPCShowProgress_Implementation()
 	}
 }
 
+void AMultiKeypad::SetCanInteract(bool CanInteract)
+{
+	bIsCanInteract = CanInteract;
+	MulticastRPCShowKeypad();
+}
+
+void AMultiKeypad::MulticastRPCShowKeypad_Implementation()
+{
+	if (MeshComponent)
+	{
+		MeshComponent->SetRenderCustomDepth(true);
+		MeshComponent->SetCustomDepthStencilValue(1);
+	}
+	UGameplayStatics::PlaySoundAtLocation(this,SirenSound,GetActorLocation());
+}

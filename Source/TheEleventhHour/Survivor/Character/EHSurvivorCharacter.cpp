@@ -10,10 +10,13 @@
 #include "gimmick/Generators/Generators.h"
 #include "gimmick/Keypad/MultiKeypad.h"
 #include "DrawDebugHelpers.h"
+#include "EngineUtils.h"
 #include "Item/Chest/Chest.h"
 #include "GameFramework/DamageType.h"
 #include "Engine/DamageEvents.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameMode/PlayerState/InGamePlayerState.h"
+#include "GameMode/Prison/PrisonManager.h"
 #include "Item/Inventory/InventoryComponent.h"
 #include "Net/UnrealNetwork.h"
 
@@ -64,6 +67,7 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 void AEHSurvivorCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
 	// 상호작용 거리 오프셋 조절
 	InterActionLength += SpringArm->TargetArmLength;
 
@@ -73,24 +77,39 @@ void AEHSurvivorCharacter::BeginPlay()
 		CrouchSpringArmLocation = DefaultSpringArmLocation + FVector(0, 0, 48.5);
 	}
 
-	if (IsValid(AttackMontage) == true)
+	if (IsValid(AttackMontage))
 	{
 		AttackMontagePlayTime = AttackMontage->GetPlayLength();
 	}
-	if (IsValid(DeathMontage) == true)
+	if (IsValid(DeathMontage))
 	{
 		DeathMontagePlayTime = DeathMontage->GetPlayLength();
 	}
-	
-	if (IsLocallyControlled() == true)
+
+	// 🔹 클라이언트(혹은 리슨 서버의 로컬플레이어)에서만 입력 매핑
+	if (GetNetMode() != NM_DedicatedServer && IsLocallyControlled())
 	{
-		APlayerController* PC = Cast<APlayerController>(GetController());
-		checkf(IsValid(PC) == true, TEXT("PlayerController is invalid."));
-	
-		UEnhancedInputLocalPlayerSubsystem* EILPS = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer());
-		checkf(IsValid(EILPS) == true, TEXT("EnhancedInputLocalPlayerSubsystem is invalid."));
-	
-		EILPS->AddMappingContext(InputMappingContext, 0);
+		if (APlayerController* PC = Cast<APlayerController>(GetController()))
+		{
+			if (ULocalPlayer* LP = PC->GetLocalPlayer())
+			{
+				if (UEnhancedInputLocalPlayerSubsystem* EILPS =
+						LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+				{
+					EILPS->AddMappingContext(InputMappingContext, 0);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("EnhancedInputLocalPlayerSubsystem is NULL (client only)."));
+				}
+			}
+		}
+	}
+
+	// ✅ PlayerState 상태 변경 반응 등록
+	if (AInGamePlayerState* PS = GetPlayerState<AInGamePlayerState>())
+	{
+		HandleStateChange(PS->SurvivorState);
 	}
 }
 
@@ -99,6 +118,8 @@ void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ThisClass, bCanAttack);
+	DOREPLIFETIME(ThisClass, bIsInteracting);
+	DOREPLIFETIME(ThisClass, InteractActor);
 }
 
 //============================== 사운드 ==============================
@@ -153,42 +174,98 @@ void AEHSurvivorCharacter::OnDeathMontageEnded(UAnimMontage* Montage, bool bInte
 }
 //======================================================================
 
-//============================== 데미지 처리 ==============================
-float AEHSurvivorCharacter::TakeDamage(float DamageAmount,
-									   const FDamageEvent& DamageEvent,
-									   AController* EventInstigator,
-									   AActor* DamageCauser)
+// ============================== 데미지 처리 (기존 유지 + 감옥 반응) ==============================
+float AEHSurvivorCharacter::TakeDamage(
+	float DamageAmount,
+	const FDamageEvent& DamageEvent,
+	AController* EventInstigator,
+	AActor* DamageCauser)
 {
 	if (!HasAuthority())
 		return 0.f;
 
-	if (AttributeComp)
-	{
-		const float CurrentHealth = AttributeComp->GetHealth();
-		AttributeComp->TakeDamage(DamageAmount);
-		const float NewHealth = AttributeComp->GetHealth();
+	const float OldHP = AttributeComp->GetHealth();
+	AttributeComp->TakeDamage(DamageAmount);
+	const float NewHP = AttributeComp->GetHealth();
 
-		if (NewHealth <= 0.f && !bIsDead)
+	AInGamePlayerState* PS = GetPlayerState<AInGamePlayerState>();
+	if (!PS) return 0.f;
+
+	if (NewHP <= 0.f && !bIsDead)
+	{
+		PS->ServerSetSurvivorState(ESurvivorState::Captured); // 감옥 수감 처리
+		MulticastDeathMontage();
+	}
+	else if (NewHP < OldHP)
+	{
+		PS->ServerSetSurvivorState(ESurvivorState::Injured);
+		MulticastHitMontage();
+	}
+
+	return OldHP - NewHP;
+}
+
+// ============================== 🔹 감옥 시스템 추가 ==============================
+void AEHSurvivorCharacter::HandleStateChange(ESurvivorState NewState)
+{
+	switch (NewState)
+	{
+	case ESurvivorState::Captured:
 		{
-			bIsDead = true;
-			// 콜리전 제거
-			for (UActorComponent* Comp : GetComponents())
+			// 감옥 매니저 찾아서 이동
+			for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
 			{
-				if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(Comp))
+				if (APrisonManager* Prison = *It)
 				{
-					Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+					Prison->Capture(this);
+					break;
 				}
 			}
-			MulticastDeathMontage();
+			break;
 		}
-		else
+	case ESurvivorState::Alive:
 		{
-			MulticastHitMontage();
+			// 구출 후 이동 복구
+			GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+			EnableInput(nullptr);
+			bIsDead = false;
+			break;
 		}
-		return CurrentHealth - NewHealth;
+	default:
+		break;
 	}
-	return 0.f;
 }
+
+// 🔹 구출 시도 (E키 등으로 트리거)
+void AEHSurvivorCharacter::TryRescue()
+{
+	if (!HasAuthority())
+	{
+		ServerTryRescue();
+		return;
+	}
+
+	for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
+	{
+		APrisonManager* Prison = *It;
+		if (!Prison) continue;
+
+		const float Distance = FVector::Dist(GetActorLocation(), Prison->GetActorLocation());
+		if (Distance <= 400.f)
+		{
+			Prison->StartRescue(this);
+			UE_LOG(LogTemp, Warning, TEXT("[Survivor] %s started rescue."), *GetName());
+			return;
+		}
+	}
+	UE_LOG(LogTemp, Warning, TEXT("[Survivor] No nearby prison to rescue!"));
+}
+
+void AEHSurvivorCharacter::ServerTryRescue_Implementation()
+{
+	TryRescue();
+}
+
 //======================================================================
 
 void AEHSurvivorCharacter::Tick(float DeltaTime)
@@ -206,6 +283,7 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	PlayerInputComponent->BindKey(EKeys::T, IE_Pressed, this, &AEHSurvivorCharacter::Debug_TakeDamage);
 	PlayerInputComponent->BindKey(EKeys::One, IE_Pressed, this, &AEHSurvivorCharacter::UseSlot0);
 	PlayerInputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AEHSurvivorCharacter::UseSlot1);
+	PlayerInputComponent->BindKey(EKeys::R, IE_Pressed, this, &AEHSurvivorCharacter::TryRescue); // 🔹 Rescue 추가
 	
 	UEnhancedInputComponent* EIC = CastChecked<UEnhancedInputComponent>(PlayerInputComponent);
 
@@ -268,6 +346,8 @@ void AEHSurvivorCharacter::OnStartCrouch(float HalfHeightAdjust, float ScaledHal
 	{
 		SpringArm->SetRelativeLocation(CrouchSpringArmLocation);
 	}
+
+	if (bIsInteracting) ServerRPCCancelInteract();
 }
 void AEHSurvivorCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust)
 {
@@ -279,6 +359,8 @@ void AEHSurvivorCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfH
 	{
 		SpringArm->SetRelativeLocation(DefaultSpringArmLocation);
 	}
+
+	if (bIsInteracting) ServerRPCCancelInteract();
 }
 void AEHSurvivorCharacter::ToggleCrouch(const FInputActionValue& value)
 {
@@ -419,7 +501,7 @@ void AEHSurvivorCharacter::ServerRPCStartInteract_Implementation()
 {
 	if (AGenerators* Generator = Cast<AGenerators>(InteractActor))
 	{
-		Generator->StartRepair();
+		Generator->StartRepair(this);
 	}
 	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
 	{
@@ -431,11 +513,13 @@ void AEHSurvivorCharacter::ServerRPCCancelInteract_Implementation()
 {
 	if (AGenerators* Generator = Cast<AGenerators>(InteractActor))
 	{
-		Generator->CancelRepair();
+		Generator->CancelRepair(this);
+		UE_LOG(LogTemp, Log, TEXT("Generator Cancel"));
 	}
 	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
 	{
 		Keypad->StopProgress();
+		UE_LOG(LogTemp, Log, TEXT("Keypad Cancel"));
 	}
 	InteractActor = nullptr;
 	bIsInteracting = false;
@@ -449,6 +533,16 @@ void AEHSurvivorCharacter::ServerRPCInteract_Implementation()
 	StartInteraction();
 }
 //======================================================================
+
+//============================== 상태변환 ==============================
+
+void AEHSurvivorCharacter::UpdateSurvivorState(ESurvivorState NewState)
+{
+	if (AInGamePlayerState* PS = GetPlayerState<AInGamePlayerState>())
+	{
+		PS->ServerSetSurvivorState(NewState);
+	}
+}
 
 //============================== 테스트용 ==============================
 void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
@@ -464,6 +558,7 @@ void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value) // 공격
 	{
 		ServerRPCAttack();
 	}
+	if (bIsInteracting) ServerRPCCancelInteract();
 }
 
 void AEHSurvivorCharacter::ServerRPCAttack_Implementation() // 서버 공격(서버에서 실행)

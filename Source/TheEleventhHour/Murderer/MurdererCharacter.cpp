@@ -9,29 +9,50 @@
 #include "EnhancedInputComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 
 
 // Sets default values
 AMurdererCharacter::AMurdererCharacter()
-	:BaseSpeed(600.0f)
+	:BaseSpeed(600.0f),SprintSpeed(900.0f),SprintGauge(MaxSprintGauge)
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
-	DamageTypeClass = UDamageType::StaticClass();
+	PrimaryActorTick.bCanEverTick = true;
+	bReplicates=true;
 	SetReplicateMovement(true);
-	GetCharacterMovement()->bOrientRotationToMovement = true;
-	bUseControllerRotationYaw=false;
-	GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
-	GetCharacterMovement()->RotationRate = FRotator(0.f, 500.f, 0.f); 
 	
-	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>("SpringArmComponent");
-	SpringArmComponent->TargetArmLength = 400.0f;
-	SpringArmComponent -> bUsePawnControlRotation = true;
-	SpringArmComponent -> SetupAttachment(RootComponent);
+	GetCharacterMovement()->MaxWalkSpeed = BaseSpeed;
+	GetCharacterMovement()->RotationRate = FRotator(0.f, 500.f, 0.f);
 	
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>("CameraComponent");
-	CameraComponent -> SetupAttachment(SpringArmComponent,USpringArmComponent::SocketName);
-	CameraComponent-> bUsePawnControlRotation = false;
+	CameraComponent -> SetupAttachment(RootComponent);
+	CameraComponent -> bUsePawnControlRotation = true;
+	CameraComponent -> SetMobility(EComponentMobility::Type::Movable);
+
+	PivotForMesh1P = CreateDefaultSubobject<USpringArmComponent>("SpringArmComponent");
+	PivotForMesh1P -> SetupAttachment(CameraComponent);
+	PivotForMesh1P -> bInheritPitch=false;
+	PivotForMesh1P -> bInheritYaw=true;
+	PivotForMesh1P -> bInheritRoll=true;
+	PivotForMesh1P->TargetArmLength=0.0f;
+	
+	Mesh1P = CreateDefaultSubobject<USkeletalMeshComponent>("Mesh1P");
+	Mesh1P -> SetupAttachment(PivotForMesh1P);
+	
+	DamageTypeClass = UDamageType::StaticClass();
+}
+
+void AMurdererCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			666, 1.0f, FColor::Green,
+			FString::Printf(TEXT("SprintGauge: %f"), SprintGauge)
+		);
+	}
 }
 
 // Called when the game starts or when spawned
@@ -39,6 +60,15 @@ void AMurdererCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	HitActorsThisSwing.Reset();
+	
+}
+
+void AMurdererCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ThisClass,bIsSprint);
+	DOREPLIFETIME(ThisClass,SprintGauge);
 }
 
 // Called to bind functionality to input
@@ -61,7 +91,8 @@ void AMurdererCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	tmp->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
 	tmp->BindAction(LookAction, ETriggerEvent::Triggered, this, &ThisClass::Look);
 	tmp->BindAction(AttackAction,ETriggerEvent::Started,this, &ThisClass::Attack);
-	
+	tmp->BindAction(SprintAction,ETriggerEvent::Started,this,&ThisClass::StartSprint);
+	tmp->BindAction(SprintAction,ETriggerEvent::Completed,this,&ThisClass::EndSprint);
 }
 
 void AMurdererCharacter::Move(const FInputActionValue& InputValue)
@@ -84,6 +115,71 @@ void AMurdererCharacter::Look(const FInputActionValue& ActionValue)
 	AddControllerPitchInput(Vec.Y);
 }
 
+void AMurdererCharacter::StartSprint_Implementation()
+{
+	if (SprintGauge<=10)
+		return;
+
+	GetWorldTimerManager().ClearTimer(SprintEndTimerHandle);
+	
+	GetCharacterMovement()->MaxWalkSpeed=SprintSpeed;
+	bIsSprint=true;
+	
+	GetWorldTimerManager().SetTimer(
+		SprintStartTimerHandle
+		,[this]()
+		{
+			SprintGauge= FMath::Clamp(--SprintGauge,0,MaxSprintGauge);
+			
+			if (SprintGauge<=0)
+			{
+				GetWorldTimerManager().ClearTimer(SprintStartTimerHandle);
+				EndSprint_Implementation();
+			}
+		}
+		,0.1f
+		,true
+		,0.0f);
+}
+
+
+void AMurdererCharacter::EndSprint_Implementation()
+{
+	if (!bIsSprint)
+		return;
+	GetWorldTimerManager().ClearTimer(SprintStartTimerHandle);
+
+	GetCharacterMovement()->MaxWalkSpeed=BaseSpeed;
+	bIsSprint=false;
+
+	if (SprintGauge>=MaxSprintGauge)
+		return;
+	
+	GetWorldTimerManager().SetTimer(
+		SprintEndTimerHandle,
+		[this]()
+		{
+			SprintGauge=FMath::Clamp(++SprintGauge,0,MaxSprintGauge);
+
+			if (SprintGauge>=MaxSprintGauge)
+			{
+				GetWorldTimerManager().ClearTimer(SprintEndTimerHandle);
+			}
+		}
+		,0.25f
+		,true
+		,5.0f
+		);
+}
+
+void AMurdererCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+	// 수명 종료 시 안전 정리 (람다에서 this 캡처 중이므로 필수)
+	GetWorldTimerManager().ClearTimer(SprintStartTimerHandle);
+	GetWorldTimerManager().ClearTimer(SprintEndTimerHandle);
+}
+
 void AMurdererCharacter::Attack_Implementation(const FInputActionValue& ActionValue)
 {
 	NetMulticast_PlayAttackAnimMontage();
@@ -91,8 +187,7 @@ void AMurdererCharacter::Attack_Implementation(const FInputActionValue& ActionVa
 
 void AMurdererCharacter::NetMulticast_PlayAttackAnimMontage_Implementation()
 {
-	if (GetNetMode()!=NM_DedicatedServer)
-	{
+
 		UE_LOG(LogTemp,Log,TEXT("공격 몽타주 재생 시도"));
 		if (AttackMontage && GetMesh()->GetAnimInstance())
 		{
@@ -103,33 +198,27 @@ void AMurdererCharacter::NetMulticast_PlayAttackAnimMontage_Implementation()
 				UE_LOG(LogTemp,Log,TEXT("공격 몽타주 재생 성공"));
 			}
 		}
-	}
-	if (HasAuthority())
-	{
-		if (AttackMontage)
+		if (IsLocallyControlled()&&Mesh1P&&Mesh1P->GetAnimInstance())
 		{
-			BeginMeleeSwingWindow();
-			
-			//나중에 비긴 플레이로 넣어주기 지금은 귀찮아
-			FTimerHandle temp;
-			const TArray<FAnimNotifyEvent>& Events = AttackMontage->Notifies;
-			float AttackNotifyTime;
-			for (FAnimNotifyEvent E : Events)
+			UAnimInstance* Anim = Mesh1P->GetAnimInstance();
+			if (AttackMontage && !Anim->Montage_IsPlaying(AttackMontage))
 			{
-				if (E.NotifyName==TEXT("AttackHit"))
-				{
-					AttackNotifyTime=E.GetTriggerTime();
-					UE_LOG(LogTemp,Log,TEXT("%s %f"),*E.NotifyName.ToString(),AttackNotifyTime);
-				}
+				Anim->Montage_Play(AttackMontage);
 			}
-			GetWorldTimerManager().SetTimer(temp,this,&AMurdererCharacter::PerformMeleeHit,AttackNotifyTime,false);
 		}
-	}
 }
 void AMurdererCharacter::BeginMeleeSwingWindow()
 {
 	if (HasAuthority())
 		HitActorsThisSwing.Reset();
+}
+
+void AMurdererCharacter::OnRep_bIsSprint()
+{
+	if (bIsSprint)
+		GetCharacterMovement()->MaxWalkSpeed=SprintSpeed;
+	else if (!bIsSprint)
+		GetCharacterMovement()->MaxWalkSpeed=BaseSpeed;
 }
 
 void AMurdererCharacter::PerformMeleeHit()

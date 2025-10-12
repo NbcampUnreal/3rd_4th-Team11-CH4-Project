@@ -8,6 +8,7 @@ class UStaticMeshComponent;
 class UStaticMEshComponent;
 class UBoxComponent;
 class UAudioComponent;
+class AEHSurvivorCharacter;
 
 UCLASS()
 class THEELEVENTHHOUR_API AGenerators : public AActor
@@ -18,8 +19,12 @@ public:
 	AGenerators();
 
 	//EHSurvivorCharacter가 사용함
-	void CancelRepair();
-	void StartRepair();
+	void CancelRepair(AEHSurvivorCharacter* Survivor);
+	void StartRepair(AEHSurvivorCharacter* Survivor);
+	
+	//WBP에서 사용
+	UFUNCTION(BlueprintCallable, Category = "Generator|UI")
+	float GetRepairProgress() const { return RepairProgress; }
 	
 protected:
 	virtual void BeginPlay() override;
@@ -59,7 +64,7 @@ protected:
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="Generators|Properties")
 	TArray<float> RepairEfficiency;
 	//수리 참여 인원(Replicated 필요)
-	UPROPERTY(Replicated, EditAnywhere,BlueprintReadWrite,Category="Generators|Properties")
+	UPROPERTY(ReplicatedUsing = OnRep_RepairCount, EditAnywhere,BlueprintReadWrite,Category="Generators|Properties")
 	int32 RepairCount;
 
 	
@@ -80,7 +85,12 @@ private:
 	//발전기 사운드 중지(Multicast)
 	UFUNCTION(NetMulticast,Reliable)
 	void MulticastRPCStopGeneratorSound();
-	
+	//발전기 작동 표시
+	UFUNCTION()
+	void OnRep_RepairCount();
+	//수리 진행도 UI 업데이트
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastRPCUpdateUI();
 	//발전기 수리 디버깅
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastRPCShowRepairProgress();
@@ -96,4 +106,8 @@ private:
 
 	//수리 타이머 핸들
 	FTimerHandle RepairTimerHandle;
+
+	//수리중인 캐릭터 배열
+	UPROPERTY(Replicated)
+	TArray<AEHSurvivorCharacter*> InteractSurvivors;
 };

@@ -28,6 +28,8 @@ bool UInventoryComponent::AddItem(EItemType Item)
     case EItemType::Key:
         if (bHasKey) { UE_LOG(LogItem, Warning, TEXT("[Inventory] already has key")); return false; }
         bHasKey = true;
+        OnItemAdded.Broadcast(Item);  // 아이템 추가 이벤트
+        OnInventoryUpdated.Broadcast(); // 전체 갱신 이벤트
         UE_LOG(LogItem, Log, TEXT("[Inventory] got KEY"));
         return true;
 
@@ -38,6 +40,8 @@ bool UInventoryComponent::AddItem(EItemType Item)
             if (ConsumableSlots[i] == EItemType::None)
             {
                 ConsumableSlots[i] = Item;
+                OnItemAdded.Broadcast(Item);   // UI
+                OnInventoryUpdated.Broadcast(); // UI
                 UE_LOG(LogItem, Log, TEXT("[Inventory] slot%d <- %s"), i, *UEnum::GetValueAsString(Item));
                 return true;
             }
@@ -53,6 +57,8 @@ bool UInventoryComponent::ConsumeKey()
 {
     if (!bHasKey) { UE_LOG(LogItem, Warning, TEXT("[Inventory] no key to consume")); return false; }
     bHasKey = false; UE_LOG(LogItem, Log, TEXT("[Inventory] key consumed"));
+    // UI 즉시 갱신
+    OnInventoryUpdated.Broadcast();
     return true;
 }
 
@@ -92,5 +98,16 @@ bool UInventoryComponent::UseItemBySlot(int32 SlotIndex)
     // === 효과 끝 ===
 
     ConsumableSlots[SlotIndex] = EItemType::None; // 사용 후 비움
+    OnItemUsed.Broadcast(Item, SlotIndex);    // 아이템 사용 이벤트
+    OnInventoryUpdated.Broadcast(); // 전체 갱신 이벤트
     return true;
+}
+// OnRep 델리게이트 추가
+void UInventoryComponent::OnRep_ConsumableSlots()
+{
+    OnInventoryUpdated.Broadcast();
+}
+void UInventoryComponent::OnRep_HasKey()
+{
+    OnInventoryUpdated.Broadcast();
 }

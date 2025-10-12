@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "MurdererCharacter.generated.h"
 
 class UCameraComponent;
@@ -11,7 +12,7 @@ class USpringArmComponent;
 class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
-
+class USkeletalMeshComponent;
 
 UCLASS()
 class THEELEVENTHHOUR_API AMurdererCharacter : public ACharacter
@@ -22,16 +23,23 @@ public:
 	// Sets default values for this character's properties
 	AMurdererCharacter();
 
+	virtual void Tick(float DeltaSeconds) override;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	//기본 컴포넌트
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="DefaultComponent")
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="DefaultComponent")
 	TObjectPtr<UCameraComponent> CameraComponent;
-	
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="DefaultComponent")
-	TObjectPtr<USpringArmComponent> SpringArmComponent;
+
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="DefaultComponent")
+	TObjectPtr<USkeletalMeshComponent> Mesh1P;
+
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category = "DefaultComponent")
+	TObjectPtr<USpringArmComponent> PivotForMesh1P;
+	// UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="DefaultComponent")
+	// TObjectPtr<USpringArmComponent> SpringArmComponent;
 	
 	// 인풋 액션
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="InputAction")
@@ -45,21 +53,44 @@ protected:
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="InputAction")
 	TObjectPtr<UInputAction> AttackAction;
+
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="InputAction")
+	TObjectPtr<UInputAction> SprintAction;
+
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="InputAction")
+	TObjectPtr<UInputAction> VaultAction;
 	
 	//인풋 액션 바인딩 함수
 	void Move(const FInputActionValue& ActionValue);
-
 	void Look(const FInputActionValue& ActionValue);
-
+	void EndPlay(EEndPlayReason::Type EndPlayReason);
+	
 	UFUNCTION(Server,Reliable)
 	void Attack(const FInputActionValue& ActionValue);
+	UFUNCTION(Server,Reliable)
+	void StartSprint();
+	UFUNCTION(Server,Reliable)
+	void EndSprint();
 	
-
 	//상태 변수, 속성 변수
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Variables")
 	float BaseSpeed;
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Variables")
+	float SprintSpeed;
+	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Variables")
 	bool bCanAttack = true;
+	UPROPERTY(ReplicatedUsing=OnRep_bIsSprint,VisibleAnywhere,BlueprintReadOnly,Category="Variables")
+	bool bIsSprint;
+
+	FTimerHandle SprintStartTimerHandle;
+	FTimerHandle SprintEndTimerHandle;
+	
+	const float MaxSprintGauge=100; //100
+	UPROPERTY(Replicated, VisibleAnywhere,BlueprintReadOnly,Category="Variables")
+	float SprintGauge;
+	
+	UFUNCTION()
+	void OnRep_bIsSprint();
 	
 	/* 공격 관련 */
 	UFUNCTION(BlueprintCallable, Category="Combat")

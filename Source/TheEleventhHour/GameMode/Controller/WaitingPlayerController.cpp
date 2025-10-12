@@ -6,6 +6,8 @@ void AWaitingPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (!IsLocalController()) return;
+	
 	if (WaitingLayoutClass)
 	{
 		WaitingLayoutWidget = CreateWidget<UWaitingLobbyWidget>(this, WaitingLayoutClass);
