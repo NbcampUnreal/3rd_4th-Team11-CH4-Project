@@ -21,7 +21,7 @@ class THEELEVENTHHOUR_API AEHSurvivorCharacter : public ACharacter
 
 public:
 	AEHSurvivorCharacter();
-
+	
 #pragma region Attack
 private:
 	UFUNCTION(Server, Reliable)
