@@ -113,7 +113,6 @@ void AEHSurvivorCharacter::BeginPlay()
 	}
 }
 
-
 void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -122,6 +121,25 @@ void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(ThisClass, bIsInteracting);
 	DOREPLIFETIME(ThisClass, InteractActor);
 }
+
+//============================== 사운드 ==============================
+void AEHSurvivorCharacter::PlayFootstepSound()
+{
+	if (FootstepSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(
+			this,
+			FootstepSound,
+			GetActorLocation(),
+			1.0f,
+			1.0f,
+			0.0f,
+			FootstepAttenuation
+		);
+	}
+}
+
+//======================================================================
 
 //============================== 피격, 죽음 ==============================
 void AEHSurvivorCharacter::MulticastHitMontage_Implementation()
@@ -149,6 +167,7 @@ void AEHSurvivorCharacter::OnDeathMontageEnded(UAnimMontage* Montage, bool bInte
 {
 	if (bIsDead)
 	{
+		GetMesh()->SetVisibility(false, true);
 		// 죽는 모션 먼저 재생 후 처리 코드
 		Destroy();
 	}
@@ -274,6 +293,7 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(WalkAction, ETriggerEvent::Started, this, &ThisClass::Walk);
 	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::AttackInput);
 	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
+	EIC->BindAction(InteractAction, ETriggerEvent::Completed, this, &AEHSurvivorCharacter::ServerRPCCancelInteract);
 }
 //======================================================================
 
@@ -399,6 +419,7 @@ void AEHSurvivorCharacter::StartInteraction()
 				{
 					if (Inv->ConsumeKey())   // 키가 있으면 true + 소모됨
 					{
+						MulticastDoorInteractMontage();
 						ServerRTryOpenDoorWithKey(Door); // 서버에서 실제 개방
 					}
 					else
@@ -414,8 +435,10 @@ void AEHSurvivorCharacter::StartInteraction()
 			{
 				if (!bIsInteracting)
 				{
+					GetCharacterMovement()->DisableMovement();
 					bIsInteracting = true;
 					InteractActor = Generator;
+					MulticastInteractMontage();
 					ServerRPCStartInteract();
 				}
 			}
@@ -425,6 +448,7 @@ void AEHSurvivorCharacter::StartInteraction()
 				{
 					bIsInteracting = true;
 					InteractActor = Keypad;
+					MulticastInteractMontage();
 					ServerRPCStartInteract();
 				}
 			}
@@ -439,6 +463,36 @@ void AEHSurvivorCharacter::StartInteraction()
 void AEHSurvivorCharacter::ServerRPCInteractionDoorOnPawn_Implementation(class AMultiplayDoor* Door)
 {
 	Door->InterActionDoor();
+}
+
+void AEHSurvivorCharacter::MulticastInteractMontage_Implementation()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (IsValid(AnimInstance) == true)
+	{
+		AnimInstance->StopAllMontages(0.f);
+		AnimInstance->Montage_Play(InteractMontage);
+	}
+}
+
+void AEHSurvivorCharacter::MulticastStopInteractMontage_Implementation()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (IsValid(AnimInstance) && InteractMontage)
+	{
+		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+		AnimInstance->Montage_Stop(0.1f, InteractMontage);
+	}
+}
+
+void AEHSurvivorCharacter::MulticastDoorInteractMontage_Implementation()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (IsValid(AnimInstance) == true)
+	{
+		AnimInstance->StopAllMontages(0.f);
+		AnimInstance->Montage_Play(DoorInteractMontage, 5.f);
+	}
 }
 //======================================================================
 
@@ -469,6 +523,9 @@ void AEHSurvivorCharacter::ServerRPCCancelInteract_Implementation()
 	}
 	InteractActor = nullptr;
 	bIsInteracting = false;
+
+	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+	MulticastStopInteractMontage();
 }
 
 void AEHSurvivorCharacter::ServerRPCInteract_Implementation()
