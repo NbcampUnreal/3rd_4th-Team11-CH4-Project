@@ -1,191 +1,357 @@
 #include "GameMode/InGameGameMode.h"
+#include "GameMode/GameState/InGameGameState.h"
 #include "GameMode/PlayerState/InGamePlayerState.h"
+#include "GameMode/Prison/PrisonManager.h"
+#include "Survivor/Character/EHSurvivorCharacter.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerController.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerStart.h"
+#include "gimmick/Keypad/MultiKeypad.h"
+#include "GameFramework/Actor.h"
+#include "TimerManager.h"
+#include "Engine/World.h"
+#include "Engine/Engine.h"
+#include "Kismet/GameplayStatics.h"
 
 AInGameGameMode::AInGameGameMode()
+	: GeneratorCount(1)
 {
-    bUseSeamlessTravel = true; // WaitingLevel → GameLevel 이동 시 PlayerState 유지
-    PlayerStateClass = AInGamePlayerState::StaticClass();
-    bRolesAssigned = false;
+	bUseSeamlessTravel = true;
 
-    // 🔹 BP 경로 직접 지정 (필요 시 블루프린트에서 덮어쓰기 가능)
-    // static ConstructorHelpers::FClassFinder<APawn> KillerBP(TEXT("/Game/Blueprints/BP_Murderer"));
-    // if (KillerBP.Succeeded()) KillerPawnClass = KillerBP.Class;
-    //
-    // static ConstructorHelpers::FClassFinder<APawn> SurvivorBP(TEXT("/Game/Blueprints/BP_Survivor"));
-    // if (SurvivorBP.Succeeded()) SurvivorPawnClass = SurvivorBP.Class;
+	GameStateClass = AInGameGameState::StaticClass();
+	PlayerStateClass = AInGamePlayerState::StaticClass();
 }
 
+/* -------------------- BeginPlay -------------------- */
+void AInGameGameMode::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (HasAuthority())
+	{
+		if (AInGameGameState* GS = GetGameState<AInGameGameState>())
+		{
+			GS->ExpectedPlayers = GameState->PlayerArray.Num();
+			GS->OnAllPlayersLoaded.AddDynamic(this, &AInGameGameMode::OnAllPlayersLoaded);
+			UE_LOG(LogTemp, Log, TEXT("[InGameGM] BeginPlay - ExpectedPlayers = %d"), GS->ExpectedPlayers);
+		}
+	}
+
+	// ✅ 감옥 매니저 찾기
+	for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
+	{
+		PrisonManager = *It;
+		break;
+	}
+	if (PrisonManager)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[InGameGM] PrisonManager found: %s"), *PrisonManager->GetName());
+	}
+}
+
+/* -------------------- PostSeamlessTravel -------------------- */
 void AInGameGameMode::PostSeamlessTravel()
 {
-    Super::PostSeamlessTravel();
-    UE_LOG(LogTemp, Log, TEXT("[InGameGM] PostSeamlessTravel -> AssignRoles"));
+	Super::PostSeamlessTravel();
 
-    if (HasAuthority() && !bRolesAssigned)
-    {
-        AssignRoles();           // 🔥 Pawn 스폰 전에 역할 먼저 부여
-        RespawnKillerIfNeeded(); // 🔥 혹시 이미 잘못 스폰된 경우 Killer만 교체
-        bRolesAssigned = true;
-    }
+	if (AInGameGameState* GS = GetGameState<AInGameGameState>())
+	{
+		GS->ExpectedPlayers = GameState->PlayerArray.Num();
+		UE_LOG(LogTemp, Log, TEXT("[InGameGM] PostSeamlessTravel - ExpectedPlayers = %d"), GS->ExpectedPlayers);
+	}
 }
 
+/* -------------------- Tick -------------------- */
+void AInGameGameMode::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (HasAuthority() && !bMatchStarted)
+	{
+		TryStartMatchWhenAllLoaded();
+	}
+}
+
+AActor* AInGameGameMode::ChoosePlayerStart_Implementation(AController* Player)
+{
+	TArray<AActor*> SpawnPoints;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerStart::StaticClass(), SpawnPoints);
+
+	TArray<APlayerStart*> PlayerTaggedStarts;
+
+	// 🔹 "Spawn.Player" 태그가 붙은 스타트만 필터링
+	for (AActor* Actor : SpawnPoints)
+	{
+		APlayerStart* Start = Cast<APlayerStart>(Actor);
+		if (Start && Start->PlayerStartTag == FName("Spawn.Player"))
+		{
+			PlayerTaggedStarts.Add(Start);
+		}
+	}
+
+	// ✅ 태그가 붙은 스타트가 하나라도 있다면 랜덤 선택
+	if (PlayerTaggedStarts.Num() > 0)
+	{
+		const int32 Index = FMath::RandRange(0, PlayerTaggedStarts.Num() - 1);
+		APlayerStart* ChosenStart = PlayerTaggedStarts[Index];
+		UE_LOG(LogTemp, Log, TEXT("[ChoosePlayerStart] Spawned at %s"), *ChosenStart->GetName());
+		return ChosenStart;
+	}
+
+	// 🚨 없으면 기본 로직 사용 (안전 fallback)
+	UE_LOG(LogTemp, Warning, TEXT("[ChoosePlayerStart] No 'Spawn.Player' found! Using default."));
+	return Super::ChoosePlayerStart_Implementation(Player);
+}
+
+/* -------------------- TryStartMatch -------------------- */
+void AInGameGameMode::TryStartMatchWhenAllLoaded()
+{
+	AInGameGameState* GS = GetGameState<AInGameGameState>();
+	if (!GS) return;
+
+	if (GS->LoadedPlayers >= GS->ExpectedPlayers && GS->ExpectedPlayers > 0)
+	{
+		bMatchStarted = true;
+		UE_LOG(LogTemp, Log, TEXT("[InGameGM] All players loaded (%d/%d). Starting countdown."), GS->LoadedPlayers, GS->ExpectedPlayers);
+		AssignRoles();
+		StartCountdown();
+	}
+}
+
+/* -------------------- OnAllPlayersLoaded -------------------- */
+void AInGameGameMode::OnAllPlayersLoaded()
+{
+	UE_LOG(LogTemp, Log, TEXT("[InGameGM] AllPlayersLoaded -> Countdown start."));
+	AssignRoles();
+	StartCountdown();
+}
+
+/* -------------------- AssignRoles -------------------- */
 void AInGameGameMode::AssignRoles()
 {
-    if (!HasAuthority() || !GameState) return;
+	const TArray<APlayerState*>& Players = GameState->PlayerArray;
+	if (Players.Num() == 0) return;
 
-    const TArray<APlayerState*>& AllPlayers = GameState->PlayerArray;
-    if (AllPlayers.Num() == 0) return;
+	int32 KillerIndex = UKismetMathLibrary::RandomInteger(Players.Num());
 
-    const int32 KillerIndex = UKismetMathLibrary::RandomInteger(AllPlayers.Num());
-    UE_LOG(LogTemp, Log, TEXT("[RoleAssign] Selecting KillerIndex: %d (Total: %d)"), KillerIndex, AllPlayers.Num());
-
-    for (int32 i = 0; i < AllPlayers.Num(); ++i)
-    {
-        if (AInGamePlayerState* PS = Cast<AInGamePlayerState>(AllPlayers[i]))
-        {
-            PS->bIsKiller = (i == KillerIndex);
-            UE_LOG(LogTemp, Log, TEXT("[RoleAssign] %s -> %s"),
-                   *PS->GetPlayerName(),
-                   PS->bIsKiller ? TEXT("KILLER") : TEXT("SURVIVOR"));
-
-            PS->ForceNetUpdate(); // ✅ 즉시 클라이언트 동기화
-        }
-    }
+	for (int32 i = 0; i < Players.Num(); ++i)
+	{
+		if (AInGamePlayerState* PS = Cast<AInGamePlayerState>(Players[i]))
+		{
+			PS->bIsKiller = (i == KillerIndex);
+			PS->ForceNetUpdate();
+			UE_LOG(LogTemp, Log, TEXT("[RoleAssign] %s -> %s"), *PS->GetPlayerName(), PS->bIsKiller ? TEXT("KILLER") : TEXT("SURVIVOR"));
+		}
+	}
 }
 
-/** 원하는 태그의 PlayerStart를 찾아 스폰 위치 반환 */
-static void PickSpawnTransformByTag(UWorld* World, const FName DesiredTag, FTransform& OutTF, const AActor* FallbackStartSpot)
+/* -------------------- Countdown -------------------- */
+void AInGameGameMode::StartCountdown()
 {
-    APlayerStart* Picked = nullptr;
-
-    // 1) 태그 매칭되는 PlayerStart 우선
-    for (TActorIterator<APlayerStart> It(World); It; ++It)
-    {
-        if (It->PlayerStartTag == DesiredTag)
-        {
-            Picked = *It;
-            break;
-        }
-    }
-
-    // 2) 폴백: 엔진이 제공한 StartSpot 사용
-    if (!Picked && FallbackStartSpot)
-    {
-        OutTF = FTransform(FallbackStartSpot->GetActorRotation(), FallbackStartSpot->GetActorLocation());
-        return;
-    }
-
-    // 3) 폴백: 아무 PlayerStart 하나라도 사용
-    if (!Picked)
-    {
-        for (TActorIterator<APlayerStart> It(World); It; ++It)
-        {
-            Picked = *It;
-            break;
-        }
-    }
-
-    // 4) 최종 폴백: 원점 약간 위로 올려 충돌 회피
-    if (!Picked)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("[SpawnPick] No PlayerStart found. Using origin offset."));
-        OutTF = FTransform(FRotator::ZeroRotator, FVector(0, 0, 200));
-        return;
-    }
-
-    OutTF = FTransform(Picked->GetActorRotation(), Picked->GetActorLocation());
+	CountdownTime = 5;
+	GetWorld()->GetTimerManager().SetTimer(CountdownTimer, this, &AInGameGameMode::CountdownTick, 1.0f, true);
 }
 
-void AInGameGameMode::RespawnKillerIfNeeded()
+void AInGameGameMode::CountdownTick()
 {
-    // 🔥 이미 Pawn이 잘못 스폰된 경우 Killer만 재포제스
-    for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
-    {
-        APlayerController* PC = It->Get();
-        if (!PC) continue;
+	UE_LOG(LogTemp, Log, TEXT("[InGameGM] Match starts in %d"), CountdownTime);
 
-        if (AInGamePlayerState* PS = PC->GetPlayerState<AInGamePlayerState>())
-        {
-            if (PS->bIsKiller)
-            {
-                APawn* CurrentPawn = PC->GetPawn();
-                if (!CurrentPawn || !CurrentPawn->IsA(KillerPawnClass))
-                {
-                    FTransform SpawnTF;
-                    PickSpawnTransformByTag(GetWorld(), FName("Killer"), SpawnTF, CurrentPawn);
-
-                    FActorSpawnParameters Params;
-                    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-
-                    if (CurrentPawn) CurrentPawn->Destroy();
-
-                    if (APawn* NewPawn = GetWorld()->SpawnActor<APawn>(
-                        KillerPawnClass,
-                        SpawnTF.GetLocation(),
-                        SpawnTF.GetRotation().Rotator(),
-                        Params))
-                    {
-                        PC->Possess(NewPawn);
-                        UE_LOG(LogTemp, Log, TEXT("[Respawn] %s as Killer at %s"),
-                            *PS->GetPlayerName(), *SpawnTF.GetLocation().ToString());
-                    }
-                    else
-                    {
-                        UE_LOG(LogTemp, Error, TEXT("[Respawn] Killer spawn failed even with AdjustIfPossibleButAlwaysSpawn"));
-                    }
-                }
-            }
-        }
-    }
+	if (CountdownTime <= 1)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(CountdownTimer);
+		ReplaceKillerPawn();
+		StartMatchTimer();
+		UE_LOG(LogTemp, Log, TEXT("[InGameGM] Countdown finished. Match begins."));
+	}
+	CountdownTime--;
 }
 
-APawn* AInGameGameMode::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AActor* StartSpot)
+/* -------------------- ReplaceKillerPawn -------------------- */
+void AInGameGameMode::ReplaceKillerPawn()
 {
-    if (AInGamePlayerState* PS = NewPlayer->GetPlayerState<AInGamePlayerState>())
-    {
-        const FName DesiredTag = PS->bIsKiller ? FName("Killer") : FName("Survivor");
-        FTransform SpawnTF;
-        PickSpawnTransformByTag(GetWorld(), DesiredTag, SpawnTF, StartSpot);
+	UE_LOG(LogTemp, Log, TEXT("[ReplaceKillerPawn] Killer pawn replacement start."));
 
-        FActorSpawnParameters Params;
-        Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	APlayerController* KillerPC = nullptr;
+	AInGamePlayerState* KillerPS = nullptr;
 
-        if (PS->bIsKiller && KillerPawnClass)
-        {
-            UE_LOG(LogTemp, Log, TEXT("[SpawnPawn] %s as KILLER at %s"),
-                *PS->GetPlayerName(), *SpawnTF.GetLocation().ToString());
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		APlayerController* PC = It->Get();
+		if (!PC) continue;
 
-            if (APawn* P = GetWorld()->SpawnActor<APawn>(
-                KillerPawnClass,
-                SpawnTF.GetLocation(),
-                SpawnTF.GetRotation().Rotator(),
-                Params))
-            {
-                return P;
-            }
-            UE_LOG(LogTemp, Warning, TEXT("[SpawnPawn] Killer spawn failed. Fallback to Survivor."));
-        }
+		AInGamePlayerState* PS = Cast<AInGamePlayerState>(PC->PlayerState);
+		if (PS && PS->bIsKiller)
+		{
+			KillerPC = PC;
+			KillerPS = PS;
+			break;
+		}
+	}
+	if (!KillerPC || !KillerPS) return;
 
-        if (SurvivorPawnClass)
-        {
-            UE_LOG(LogTemp, Log, TEXT("[SpawnPawn] %s as SURVIVOR at %s"),
-                *PS->GetPlayerName(), *SpawnTF.GetLocation().ToString());
+	FVector SpawnLoc = FVector::ZeroVector;
+	FRotator SpawnRot = FRotator::ZeroRotator;
 
-            if (APawn* P = GetWorld()->SpawnActor<APawn>(
-                SurvivorPawnClass,
-                SpawnTF.GetLocation(),
-                SpawnTF.GetRotation().Rotator(),
-                Params))
-            {
-                return P;
-            }
-            UE_LOG(LogTemp, Error, TEXT("[SpawnPawn] Survivor spawn failed too at %s"), *SpawnTF.GetLocation().ToString());
-        }
-    }
+	if (APawn* OldPawn = KillerPC->GetPawn())
+	{
+		SpawnLoc = OldPawn->GetActorLocation();
+		SpawnRot = OldPawn->GetActorRotation();
+		OldPawn->Destroy();
+	}
+	else if (AActor* DefaultStart = FindPlayerStart(KillerPC))
+	{
+		SpawnLoc = DefaultStart->GetActorLocation();
+		SpawnRot = DefaultStart->GetActorRotation();
+	}
 
-    return Super::SpawnDefaultPawnFor_Implementation(NewPlayer, StartSpot);
+	FActorSpawnParameters Params;
+	Params.Owner = KillerPC;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	if (APawn* NewPawn = GetWorld()->SpawnActor<APawn>(KillerPawnClass, SpawnLoc, SpawnRot, Params))
+	{
+		KillerPC->Possess(NewPawn);
+	}
+}
+
+/* -------------------- Match Timer -------------------- */
+void AInGameGameMode::StartMatchTimer()
+{
+	GetWorld()->GetTimerManager().SetTimer(MatchTimerHandle, this, &AInGameGameMode::MatchTick, MatchTickInterval, true);
+}
+
+void AInGameGameMode::MatchTick()
+{
+	AInGameGameState* GS = GetGameState<AInGameGameState>();
+	if (!GS || GS->bGameEnded) return;
+
+	GS->RemainingTime--;
+	if (GS->bExitGateOpened && GS->RemainingTime > 60) GS->RemainingTime = 60;
+
+	if (GS->RemainingTime <= 0)
+	{
+		EndGame(TEXT("Time’s up! Survivors failed to escape."));
+		return;
+	}
+	CheckVictoryConditions();
+}
+
+/* -------------------- 감옥 시스템 -------------------- */
+void AInGameGameMode::CapturePlayer(AEHSurvivorCharacter* Victim)
+{
+	if (!PrisonManager || !Victim) return;
+	PrisonManager->Capture(Victim);
+	EvaluateAllPlayerStates();
+}
+
+void AInGameGameMode::NotifyRescueStarted(AEHSurvivorCharacter* Rescuer)
+{
+	UE_LOG(LogTemp, Log, TEXT("[InGameGM] Rescue started by %s"), *Rescuer->GetName());
+}
+
+void AInGameGameMode::NotifyRescueCompleted()
+{
+	UE_LOG(LogTemp, Log, TEXT("[InGameGM] Rescue completed"));
+	EvaluateAllPlayerStates();
+}
+
+/* -------------------- PlayerState 평가 -------------------- */
+void AInGameGameMode::EvaluateAllPlayerStates()
+{
+	CheckVictoryConditions();
+	if (GEngine)
+		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Yellow, TEXT("EvaluateAllPlayerStates()"));
+}
+
+/* -------------------- 승패 판정 -------------------- */
+void AInGameGameMode::CheckVictoryConditions()
+{
+	AInGameGameState* GS = GetGameState<AInGameGameState>();
+	if (!GS || GS->bGameEnded) return;
+
+	int32 AliveOrInjured = 0;
+	int32 Escaped = 0;
+	int32 Captured = 0;
+
+	for (APlayerState* PS : GS->PlayerArray)
+	{
+		if (AInGamePlayerState* Player = Cast<AInGamePlayerState>(PS))
+		{
+			if (Player->bIsKiller)
+				continue;
+
+			switch (Player->SurvivorState)
+			{
+			case ESurvivorState::Alive:
+			case ESurvivorState::Injured:
+				AliveOrInjured++;
+				break;
+
+			case ESurvivorState::Captured:
+			case ESurvivorState::Dead:
+				Captured++;
+				break;
+
+			case ESurvivorState::Escaped:
+				Escaped++;
+				break;
+			}
+		}
+	}
+
+	// 🔹 탈출 조건
+	if (Escaped > 0 && AliveOrInjured == 0)
+	{
+		EndGame(TEXT("Survivors escaped successfully!"));
+		return;
+	}
+
+	// 🔹 킬러 승리 조건 (모두 포획 or 사망)
+	if (AliveOrInjured == 0 && Captured > 0)
+	{
+		EndGame(TEXT("Killer wins! All survivors captured!"));
+		return;
+	}
+}
+
+
+/* -------------------- EndGame -------------------- */
+void AInGameGameMode::EndGame(const FString& Reason)
+{
+	AInGameGameState* GS = GetGameState<AInGameGameState>();
+	if (!GS || GS->bGameEnded) return;
+
+	GS->bGameEnded = true;
+	GS->EndReason = Reason;
+
+	GetWorld()->GetTimerManager().ClearTimer(MatchTimerHandle);
+	GetWorld()->GetTimerManager().ClearTimer(CountdownTimer);
+
+	UE_LOG(LogTemp, Warning, TEXT("[InGameGM] GAME OVER: %s"), *Reason);
+}
+
+/* -------------------- 발전기 -------------------- */
+void AInGameGameMode::CompletedRepair()
+{
+	GeneratorCount--;
+	if (GeneratorCount <= 0)
+	{
+		for (TActorIterator<AMultiKeypad> It(GetWorld()); It; ++It)
+			if (AMultiKeypad* Keypad = *It)
+				Keypad->SetCanInteract(true);
+	}
+}
+
+/* -------------------- 감옥 이동 -------------------- */
+void AInGameGameMode::SendToPrison(AInGamePlayerState* CapturedPlayer)
+{
+	if (!HasAuthority() || !CapturedPlayer || !PrisonManager) return;
+
+	if (APlayerController* PC = Cast<APlayerController>(CapturedPlayer->GetOwner()))
+	{
+		if (AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(PC->GetPawn()))
+			CapturePlayer(Survivor);
+	}
 }

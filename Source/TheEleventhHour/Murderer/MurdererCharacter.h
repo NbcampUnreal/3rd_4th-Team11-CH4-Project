@@ -35,7 +35,9 @@ protected:
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="DefaultComponent")
 	TObjectPtr<USkeletalMeshComponent> Mesh1P;
-	
+
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category = "DefaultComponent")
+	TObjectPtr<USpringArmComponent> PivotForMesh1P;
 	// UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="DefaultComponent")
 	// TObjectPtr<USpringArmComponent> SpringArmComponent;
 	
