@@ -66,6 +66,31 @@ protected:
 	void OnDeathMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 #pragma endregion
 
+#pragma region interaction
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> InteractMontage;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> DoorInteractMontage;
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastInteractMontage();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastStopInteractMontage();
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastDoorInteractMontage();
+#pragma endregion
+
+#pragma region Sound
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USoundBase* FootstepSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USoundAttenuation* FootstepAttenuation;
+
+public:
+	UFUNCTION()
+	void PlayFootstepSound();
+#pragma endregion
+
 protected:
 	virtual void BeginPlay() override;
 
