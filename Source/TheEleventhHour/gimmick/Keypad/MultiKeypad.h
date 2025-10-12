@@ -8,6 +8,7 @@ class UStaticMeshComponent;
 class UStaticMEshComponent;
 class UBoxComponent;
 class UAudioComponent;
+class AEHSurvivorCharacter;
 
 UCLASS()
 class THEELEVENTHHOUR_API AMultiKeypad : public AActor
@@ -17,9 +18,13 @@ class THEELEVENTHHOUR_API AMultiKeypad : public AActor
 public:	
 	AMultiKeypad();
 	
-	void StartProgress();
-	void StopProgress();
+	void StartProgress(AEHSurvivorCharacter* Survivor);
+	void StopProgress(AEHSurvivorCharacter* Survivor);
 	void SetCanInteract(bool CanInteract);
+	
+	//WBP에서 사용
+	UFUNCTION(BlueprintCallable, Category = "Keypad|UI")
+	float GetKeypadProgress() const { return Progress; }
 	
 protected:
 	virtual void BeginPlay() override;
@@ -88,4 +93,7 @@ private:
 
 	//키패드 타이머 핸들
 	FTimerHandle ProgressTimerHandle;
+	
+	UPROPERTY(Replicated)
+	AEHSurvivorCharacter* InteractSurvivor;
 };

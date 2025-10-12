@@ -505,7 +505,7 @@ void AEHSurvivorCharacter::ServerRPCStartInteract_Implementation()
 	}
 	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
 	{
-		Keypad->StartProgress();
+		Keypad->StartProgress(this);
 	}
 }
 
@@ -518,7 +518,7 @@ void AEHSurvivorCharacter::ServerRPCCancelInteract_Implementation()
 	}
 	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
 	{
-		Keypad->StopProgress();
+		Keypad->StopProgress(this);
 		UE_LOG(LogTemp, Log, TEXT("Keypad Cancel"));
 	}
 	InteractActor = nullptr;

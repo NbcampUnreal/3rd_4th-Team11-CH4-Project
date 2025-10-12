@@ -16,6 +16,8 @@ AGenerators::AGenerators()
 
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>("MeshComponent");
 	MeshComponent->SetupAttachment(SceneComponent);
+	MeshComponent->SetRenderCustomDepth(true);
+	MeshComponent->SetCustomDepthStencilValue(4);
 	
 	BoxComponent = CreateDefaultSubobject<UBoxComponent>("BoxComponent");
 	BoxComponent->SetupAttachment(SceneComponent);
@@ -143,7 +145,7 @@ void AGenerators::CompleteGenerator()
 		{
 			GM->CompletedRepair();
 		}
-		RepairCount = 0;
+		RepairCount = -1;
 	}
 	
 	UGameplayStatics::PlaySoundAtLocation(this,CompleteSound,GetActorLocation());
@@ -176,9 +178,21 @@ void AGenerators::OnRep_RepairCount()
 {
 	if (MeshComponent)
 	{
-		bool bHighlight = (RepairCount > 0);
-		MeshComponent->SetRenderCustomDepth(bHighlight);
-		MeshComponent->SetCustomDepthStencilValue(bHighlight ? 1 : 0);
+		if (RepairCount > 0)
+		{
+			MeshComponent->SetRenderCustomDepth(true);
+			MeshComponent->SetCustomDepthStencilValue(3);
+		}
+		else if (RepairCount == 0)
+		{
+			MeshComponent->SetRenderCustomDepth(true);
+			MeshComponent->SetCustomDepthStencilValue(4);
+		}
+		else if (RepairCount == -1)
+		{
+			MeshComponent->SetRenderCustomDepth(false);
+			MeshComponent->SetCustomDepthStencilValue(0);
+		}
 	}
 }
 
