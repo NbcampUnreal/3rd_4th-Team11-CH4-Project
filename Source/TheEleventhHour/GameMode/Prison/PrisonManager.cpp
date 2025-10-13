@@ -73,25 +73,15 @@ void APrisonManager::Capture(AEHSurvivorCharacter* Victim)
 /* -------------------- 구출 시작 -------------------- */
 void APrisonManager::StartRescue_Implementation(AEHSurvivorCharacter* Rescuer)
 {
-	if (!HasAuthority() || CapturedSurvivors.Num() == 0)
-		return;
+	if (!HasAuthority() || CapturedSurvivors.Num() == 0) return;
 
-	// 중복 방지
-	if (CurrentRescuer && CurrentRescuer != Rescuer)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Prison] Rescue already in progress by %s."), *CurrentRescuer->GetName());
-		return;
-	}
+	if (CurrentRescuer && CurrentRescuer != Rescuer) return;
 
 	CurrentRescuer = Rescuer;
-	UE_LOG(LogTemp, Log, TEXT("[Prison] Rescue started by %s"), *Rescuer->GetName());
-
-	if (LinkedGameMode)
-		LinkedGameMode->NotifyRescueStarted(Rescuer);
-
-	// RescueDuration 초 후 완료
+	UE_LOG(LogTemp, Warning, TEXT("[Rescue] Started by %s on SERVER"), *Rescuer->GetName());
 	GetWorldTimerManager().SetTimer(RescueTimer, this, &APrisonManager::CompleteRescue, RescueDuration, false);
 }
+
 
 /* -------------------- 구출 취소 -------------------- */
 void APrisonManager::CancelRescue_Implementation(AEHSurvivorCharacter* Rescuer)
