@@ -319,6 +319,7 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::AttackInput);
 	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
 	EIC->BindAction(InteractAction, ETriggerEvent::Completed, this, &AEHSurvivorCharacter::ServerRPCCancelInteract);
+	EIC->BindAction(JumpAction, ETriggerEvent::Started, this, &AEHSurvivorCharacter::Jump);
 	
 	// ✅ 새로 추가
 	if (RescueAction)
@@ -482,6 +483,11 @@ void AEHSurvivorCharacter::StartInteraction()
 	{
 		UE_LOG(LogTemp,Log,TEXT("LineTraceMiss"));
 	}
+}
+
+void AEHSurvivorCharacter::Jump()
+{
+	Super::Jump();
 }
 
 void AEHSurvivorCharacter::ServerRPCInteractionDoorOnPawn_Implementation(class AMultiplayDoor* Door)

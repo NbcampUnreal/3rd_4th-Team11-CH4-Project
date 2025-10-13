@@ -125,6 +125,8 @@ protected:
 	TObjectPtr<UInputAction> AttackAction;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> RescueAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> JumpAction;
 	// --------------------
 
 	// ------ 스프링암 설정 ------
@@ -142,6 +144,7 @@ protected:
 	UFUNCTION(BlueprintCallable, Category="Interaction")
 	void StartInteraction();
 	void EndInteraction(const FInputActionValue& value);
+	void Jump() override;
 	// --------------------
 
 	// ------ 상태관리 ------
