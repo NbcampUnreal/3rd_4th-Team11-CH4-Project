@@ -139,8 +139,6 @@ protected:
 	void Move(const FInputActionValue& value);
 	void Look(const FInputActionValue& value);
 	void ToggleCrouch(const FInputActionValue& value);
-	void StartCross(const FInputActionValue& value);
-	void EndCross(const FInputActionValue& value);
 	UFUNCTION(BlueprintCallable, Category="Interaction")
 	void StartInteraction();
 	void EndInteraction(const FInputActionValue& value);
@@ -151,8 +149,6 @@ protected:
 	bool bIsCrouching;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", Replicated)
 	bool bIsInteracting;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
-	bool bIsWalking;
 	UPROPERTY(BlueprintReadWrite)
 	bool bIsVaulting;
 	// --------------------
