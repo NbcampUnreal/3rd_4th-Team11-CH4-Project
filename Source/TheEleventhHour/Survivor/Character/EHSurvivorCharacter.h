@@ -116,6 +116,8 @@ protected:
 	TObjectPtr<UInputAction> InteractAction;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> AttackAction;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> RescueAction;
 	// --------------------
 
 	// ------ 스프링암 설정 ------
@@ -205,6 +207,10 @@ private:
 private:
 	void HandleStateChange(ESurvivorState NewState);  // PlayerState 변경 시 반응
 	void TryRescue();                                 // 감옥 구출 시도
+	
+	UFUNCTION(Server, Reliable)
+	void ServerRequestCapture();
+
 	UFUNCTION(Server, Reliable)
 	void ServerTryRescue();
 	/* --------------------------------------------------------------- */

@@ -214,20 +214,25 @@ void AEHSurvivorCharacter::HandleStateChange(ESurvivorState NewState)
 	{
 	case ESurvivorState::Captured:
 		{
-			// 감옥 매니저 찾아서 이동
-			for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
+			if (HasAuthority())
 			{
-				if (APrisonManager* Prison = *It)
+				for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
 				{
-					Prison->Capture(this);
-					break;
+					if (APrisonManager* Prison = *It)
+					{
+						Prison->Capture(this);
+						break;
+					}
 				}
+			}
+			else
+			{
+				ServerRequestCapture(); // 클라면 서버로 RPC 요청
 			}
 			break;
 		}
 	case ESurvivorState::Alive:
 		{
-			// 구출 후 이동 복구
 			GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 			EnableInput(nullptr);
 			bIsDead = false;
@@ -235,6 +240,18 @@ void AEHSurvivorCharacter::HandleStateChange(ESurvivorState NewState)
 		}
 	default:
 		break;
+	}
+}
+
+void AEHSurvivorCharacter::ServerRequestCapture_Implementation()
+{
+	for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
+	{
+		if (APrisonManager* Prison = *It)
+		{
+			Prison->Capture(this);
+			break;
+		}
 	}
 }
 
@@ -285,8 +302,7 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	PlayerInputComponent->BindKey(EKeys::T, IE_Pressed, this, &AEHSurvivorCharacter::Debug_TakeDamage);
 	PlayerInputComponent->BindKey(EKeys::One, IE_Pressed, this, &AEHSurvivorCharacter::UseSlot0);
 	PlayerInputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AEHSurvivorCharacter::UseSlot1);
-	PlayerInputComponent->BindKey(EKeys::R, IE_Pressed, this, &AEHSurvivorCharacter::TryRescue); // 🔹 Rescue 추가
-	
+
 	UEnhancedInputComponent* EIC = CastChecked<UEnhancedInputComponent>(PlayerInputComponent);
 
 	EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
@@ -296,6 +312,16 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
 	EIC->BindAction(InteractAction, ETriggerEvent::Completed, this, &AEHSurvivorCharacter::ServerRPCCancelInteract);
 	EIC->BindAction(CrossAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartCross);
+	
+	// ✅ 새로 추가
+	if (RescueAction)
+	{
+		EIC->BindAction(RescueAction, ETriggerEvent::Started, this, &ThisClass::TryRescue);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Input] RescueAction not set on %s"), *GetName());
+	}
 }
 //======================================================================
 

@@ -368,44 +368,16 @@ void AInGameGameMode::CompletedRepair()
 /* -------------------- 감옥 이동 -------------------- */
 void AInGameGameMode::SendToPrison(AInGamePlayerState* CapturedPlayer)
 {
-	if (!HasAuthority() || !CapturedPlayer)
-		return;
+	if (!HasAuthority() || !CapturedPlayer) return;
 
 	APlayerController* PC = Cast<APlayerController>(CapturedPlayer->GetOwner());
 	if (!PC) return;
 
 	AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(PC->GetPawn());
-	if (!Survivor) return;
+	if (!Survivor || !PrisonManager) return;
 
-	// ✅ 1️⃣ PlayerStart 중 "Spawn.Prison" 태그를 가진 지점 찾기
-	APlayerStart* PrisonStart = nullptr;
+	// ✅ 수감은 반드시 PrisonManager가 수행 (배열 갱신 + 상태/이동 포함)
+	PrisonManager->Capture(Survivor);
 
-	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
-	{
-		APlayerStart* Start = *It;
-		if (Start && Start->PlayerStartTag == FName("Spawn.Prison"))
-		{
-			PrisonStart = Start;
-			break;
-		}
-	}
-
-	if (!PrisonStart)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[SendToPrison] ❌ No PlayerStart found with Tag 'Spawn.Prison'"));
-		return;
-	}
-
-	// ✅ 2️⃣ 감옥 위치로 이동
-	const FVector PrisonLoc = PrisonStart->GetActorLocation();
-	const FRotator PrisonRot = PrisonStart->GetActorRotation();
-
-	Survivor->TeleportTo(PrisonLoc, PrisonRot, false, true);
-
-	// ✅ 3️⃣ 상태 갱신
-	CapturedPlayer->ServerSetSurvivorState(ESurvivorState::Captured);
-
-	UE_LOG(LogTemp, Warning, TEXT("[InGameGM] %s moved to prison at PlayerStart '%s'"),
-		*Survivor->GetName(),
-		*PrisonStart->GetName());
+	EvaluateAllPlayerStates();
 }
