@@ -51,11 +51,13 @@ bool AItemSpawnVolume::GetRandomPointInVolume(FVector& OutLoc) const
         if (NavSys->GetRandomPointInNavigableRadius(RandomPoint, NavSearchRadius, NavLoc))
         {
             OutLoc = NavLoc.Location;
+            OutLoc.Z = GetActorLocation().Z;
             return true;
         }
     }
 
     OutLoc = RandomPoint; // 네비가 없어도 그냥 스폰
+    OutLoc.Z = GetActorLocation().Z;
     return true;
 }
 

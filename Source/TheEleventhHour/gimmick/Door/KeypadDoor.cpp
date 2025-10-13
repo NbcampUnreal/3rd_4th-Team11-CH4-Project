@@ -3,6 +3,7 @@
 AKeypadDoor::AKeypadDoor()
 {
 	bIsRemoteDoor = true;
+	bAlwaysRelevant = true;
 }
 
 void AKeypadDoor::OpenKeypadDoor()
