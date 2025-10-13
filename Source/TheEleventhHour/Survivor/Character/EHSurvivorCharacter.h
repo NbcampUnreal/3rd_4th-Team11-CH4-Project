@@ -115,8 +115,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> InteractAction;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
-	TObjectPtr<UInputAction> WalkAction;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> AttackAction;
 	// --------------------
 
@@ -137,7 +135,6 @@ protected:
 	UFUNCTION(BlueprintCallable, Category="Interaction")
 	void StartInteraction();
 	void EndInteraction(const FInputActionValue& value);
-	void Walk(const FInputActionValue& value);
 	// --------------------
 
 	// ------ 상태관리 ------
@@ -147,6 +144,7 @@ protected:
 	bool bIsInteracting;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
 	bool bIsWalking;
+	bool bIsVaulting;
 	// --------------------
 
 	// ------ 조절 변수 ------

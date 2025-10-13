@@ -28,6 +28,7 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	, InteractActor(nullptr)
 	, bIsCrouching(false)
 	, bIsInteracting(false)
+	, bIsVaulting(false)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	// 레플리케이션 설정
@@ -118,6 +119,7 @@ void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ThisClass, bCanAttack);
+	DOREPLIFETIME(ThisClass, bIsDead);
 	DOREPLIFETIME(ThisClass, bIsInteracting);
 	DOREPLIFETIME(ThisClass, InteractActor);
 }
@@ -290,10 +292,10 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
 	EIC->BindAction(LookAction, ETriggerEvent::Triggered, this, &ThisClass::Look);
 	EIC->BindAction(CrouchAction, ETriggerEvent::Started, this, &ThisClass::ToggleCrouch);
-	EIC->BindAction(WalkAction, ETriggerEvent::Started, this, &ThisClass::Walk);
 	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::AttackInput);
 	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
 	EIC->BindAction(InteractAction, ETriggerEvent::Completed, this, &AEHSurvivorCharacter::ServerRPCCancelInteract);
+	EIC->BindAction(CrossAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartCross);
 }
 //======================================================================
 
@@ -375,14 +377,11 @@ void AEHSurvivorCharacter::ToggleCrouch(const FInputActionValue& value)
 		UE_LOG(LogTemp, Warning, TEXT("Crouch!"));
 	}
 }
+
 //======================================================================
 
 //============================== 파쿠르(예정) ==============================
 void AEHSurvivorCharacter::StartCross(const FInputActionValue& value)
-{
-}
-
-void AEHSurvivorCharacter::EndCross(const FInputActionValue& value)
 {
 }
 //======================================================================
@@ -545,10 +544,7 @@ void AEHSurvivorCharacter::UpdateSurvivorState(ESurvivorState NewState)
 }
 
 //============================== 테스트용 ==============================
-void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
-{
-	
-}
+
 //======================================================================
 
 //============================== 공격 ==============================
