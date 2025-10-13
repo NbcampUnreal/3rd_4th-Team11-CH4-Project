@@ -7,6 +7,7 @@
 #include "NavigationSystem.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "Item/ItemLog/ItemLog.h"
 
 AItemSpawnVolume::AItemSpawnVolume()
 {
@@ -62,25 +63,37 @@ bool AItemSpawnVolume::GetRandomPointInVolume(FVector& OutLoc) const
 void AItemSpawnVolume::TrySpawnOne()
 {
     if (!HasAuthority() || !ChestClass) return;
-    
     if (bChestRespawnCooling) return;
 
-    if (CountAliveChests() >= MaxAlive) return;
+    const int32 Alive = CountAliveChests();
+    if (Alive >= MaxAlive) return;
 
     FVector SpawnLoc;
     if (!GetRandomPointInVolume(SpawnLoc)) return;
 
+    // 지면 투영
+    {
+        FHitResult Hit;
+        const FVector Start = SpawnLoc + FVector(0, 0, 200.f);
+        const FVector End   = SpawnLoc - FVector(0, 0, 2000.f);
+        FCollisionQueryParams Params(SCENE_QUERY_STAT(SpawnVolumeTrace), false, this);
+
+        if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
+        {
+            SpawnLoc = Hit.ImpactPoint + FVector(0, 0, 6.f); // 살짝 띄워서 바닥 관통 방지
+        }
+    }
+
     FActorSpawnParameters Params;
     Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
-    // 스폰
     AChest* Spawned = GetWorld()->SpawnActor<AChest>(ChestClass, SpawnLoc, FRotator::ZeroRotator, Params);
-
     if (Spawned)
     {
         Spawned->OnDestroyed.AddDynamic(this, &AItemSpawnVolume::OnChestDestroyed);
     }
 }
+
 void AItemSpawnVolume::SpawnItem()
 {
     if (!bCanSpawn) return;

@@ -36,6 +36,22 @@ void AChest::BeginPlay()
 {
     Super::BeginPlay();
     CurrentHP = MaxHP;
+    if (HasAuthority())
+    {
+        // 1) 초기 충돌 OFF (스폰 즉시 튕김 방지)
+        SetActorEnableCollision(false);
+        if (HitBox)
+        {
+            // HitBox는 기본 BlockAll에 가까운 설정입니다. :contentReference[oaicite:4]{index=4}
+            HitBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        }
+
+        // 2) 지면으로 스냅
+        SnapToGround();
+
+        // 3) 다음 틱에 충돌 ON
+        GetWorldTimerManager().SetTimerForNextTick(this, &AChest::EnableCollisionDeferred);
+    }
 }
 
 void AChest::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -233,4 +249,34 @@ void AChest::MulticastPlayBreakSFX_Implementation()
         UE_LOG(LogItem, Warning, TEXT("[Chest] 파괴음 멀티캐스트 호출: %s, 하지만 BreakSFX가 비어있음"),
             HasAuthority() ? TEXT("서버") : TEXT("클라이언트"));
     }
+}
+void AChest::SnapToGround()
+{
+    const FVector Start = GetActorLocation();
+    const FVector End   = Start - FVector(0, 0, GroundTraceDown);
+
+    FHitResult Hit;
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(ChestGroundTrace), false, this);
+
+    // 지면 히트 시, 살짝 띄워서 위치 고정
+    if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
+    {
+        const FVector NewLoc = Hit.ImpactPoint + FVector(0, 0, GroundSnapOffset);
+        SetActorLocation(NewLoc, false, nullptr, ETeleportType::TeleportPhysics);
+        UE_LOG(LogItem, Log, TEXT("[Chest] 지면 스냅 적용: %s → Z=%.1f"), *GetName(), NewLoc.Z);
+    }
+    else
+    {
+        UE_LOG(LogItem, Warning, TEXT("[Chest] 지면 스냅 실패: %s (트레이스 미히트)"), *GetName());
+    }
+}
+
+void AChest::EnableCollisionDeferred()
+{
+    SetActorEnableCollision(true);
+    if (HitBox)
+    {
+        HitBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    }
+    UE_LOG(LogItem, Log, TEXT("[Chest] 충돌 재활성화"));
 }
