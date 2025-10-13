@@ -60,8 +60,8 @@ public:
 	void IncrementLoadedPlayers();
 
 	/** 🔹 서버: 발전기 수리 개수 증가 */
-	UFUNCTION(BlueprintCallable, Category="Match")
-	void AddGeneratorProgress(int32 Delta = 1);
+	UFUNCTION(BlueprintCallable)
+	void SetGeneratorsRepaired(int32 NewCount);
 
 	/** 🔹 서버: 탈출구 열기 (열리면 남은 시간을 60초로 줄이는 건 GM에서 처리 권장) */
 	UFUNCTION(BlueprintCallable, Category="Match")

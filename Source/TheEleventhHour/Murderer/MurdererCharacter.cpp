@@ -3,13 +3,16 @@
 
 #include "Murderer/MurdererCharacter.h"
 
+#include "EngineUtils.h"
 #include "EnhancedInputSubsystems.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "EnhancedInputComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameMode/PlayerState/InGamePlayerState.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "Survivor/Character/EHSurvivorCharacter.h"
 
 
 // Sets default values
@@ -60,7 +63,6 @@ void AMurdererCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	HitActorsThisSwing.Reset();
-	
 }
 
 void AMurdererCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -140,6 +142,7 @@ void AMurdererCharacter::StartSprint_Implementation()
 		,0.1f
 		,true
 		,0.0f);
+	
 }
 
 

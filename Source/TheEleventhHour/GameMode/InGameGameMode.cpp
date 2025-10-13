@@ -16,7 +16,7 @@
 #include "Kismet/GameplayStatics.h"
 
 AInGameGameMode::AInGameGameMode()
-	: GeneratorCount(1)
+	: PrisonManager(nullptr), GeneratorCount(1)
 {
 	bUseSeamlessTravel = true;
 
@@ -308,11 +308,16 @@ void AInGameGameMode::CheckVictoryConditions()
 		return;
 	}
 
+	// 🔹 발전기 1개 작동 완료 시
+	if (GeneratorCount <= 0)
+	{
+		EndGame(TEXT("Generator is Repaired!"));
+	}
+	
 	// 🔹 킬러 승리 조건 (모두 포획 or 사망)
 	if (AliveOrInjured == 0 && Captured > 0)
 	{
 		EndGame(TEXT("Killer wins! All survivors captured!"));
-		return;
 	}
 }
 
@@ -335,23 +340,72 @@ void AInGameGameMode::EndGame(const FString& Reason)
 /* -------------------- 발전기 -------------------- */
 void AInGameGameMode::CompletedRepair()
 {
+	if (!HasAuthority()) return;
+
 	GeneratorCount--;
+	UE_LOG(LogTemp, Log, TEXT("[GM] GeneratorCount decreased: %d"), GeneratorCount);
+
+	AInGameGameState* GS = GetGameState<AInGameGameState>();
+	if (GS)
+	{
+		// ✅ GameState에 정확한 수치로 설정
+		const int32 RepairedCount = 5 - FMath::Max(0, GeneratorCount);
+		GS->SetGeneratorsRepaired(RepairedCount);
+	}
+
 	if (GeneratorCount <= 0)
 	{
 		for (TActorIterator<AMultiKeypad> It(GetWorld()); It; ++It)
+		{
 			if (AMultiKeypad* Keypad = *It)
 				Keypad->SetCanInteract(true);
+		}
+		UE_LOG(LogTemp, Log, TEXT("[GM] All generators repaired. Keypads unlocked."));
 	}
 }
+
 
 /* -------------------- 감옥 이동 -------------------- */
 void AInGameGameMode::SendToPrison(AInGamePlayerState* CapturedPlayer)
 {
-	if (!HasAuthority() || !CapturedPlayer || !PrisonManager) return;
+	if (!HasAuthority() || !CapturedPlayer)
+		return;
 
-	if (APlayerController* PC = Cast<APlayerController>(CapturedPlayer->GetOwner()))
+	APlayerController* PC = Cast<APlayerController>(CapturedPlayer->GetOwner());
+	if (!PC) return;
+
+	AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(PC->GetPawn());
+	if (!Survivor) return;
+
+	// ✅ 1️⃣ PlayerStart 중 "Spawn.Prison" 태그를 가진 지점 찾기
+	APlayerStart* PrisonStart = nullptr;
+
+	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
 	{
-		if (AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(PC->GetPawn()))
-			CapturePlayer(Survivor);
+		APlayerStart* Start = *It;
+		if (Start && Start->PlayerStartTag == FName("Spawn.Prison"))
+		{
+			PrisonStart = Start;
+			break;
+		}
 	}
+
+	if (!PrisonStart)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[SendToPrison] ❌ No PlayerStart found with Tag 'Spawn.Prison'"));
+		return;
+	}
+
+	// ✅ 2️⃣ 감옥 위치로 이동
+	const FVector PrisonLoc = PrisonStart->GetActorLocation();
+	const FRotator PrisonRot = PrisonStart->GetActorRotation();
+
+	Survivor->TeleportTo(PrisonLoc, PrisonRot, false, true);
+
+	// ✅ 3️⃣ 상태 갱신
+	CapturedPlayer->ServerSetSurvivorState(ESurvivorState::Captured);
+
+	UE_LOG(LogTemp, Warning, TEXT("[InGameGM] %s moved to prison at PlayerStart '%s'"),
+		*Survivor->GetName(),
+		*PrisonStart->GetName());
 }
