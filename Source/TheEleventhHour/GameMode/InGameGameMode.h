@@ -24,7 +24,6 @@ class THEELEVENTHHOUR_API AInGameGameMode : public AGameModeBase
 
 public:
 	AInGameGameMode();
-
 	// ---- 감옥 관련 ----
 	UPROPERTY()
 	APrisonManager* PrisonManager;

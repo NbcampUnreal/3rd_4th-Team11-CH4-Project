@@ -11,8 +11,8 @@ class UCameraComponent;
 class USpringArmComponent;
 class UInputMappingContext;
 class UInputAction;
-struct FInputActionValue;
 class USkeletalMeshComponent;
+struct FInputActionValue;
 
 UCLASS()
 class THEELEVENTHHOUR_API AMurdererCharacter : public ACharacter
@@ -22,17 +22,24 @@ class THEELEVENTHHOUR_API AMurdererCharacter : public ACharacter
 public:
 	// Sets default values for this character's properties
 	AMurdererCharacter();
+	
+	// Called to bind functionality to input
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	virtual void Tick(float DeltaSeconds) override;
 
 	UFUNCTION(Server,Unreliable)
 	void Server_PlayFootstepSound();
-
+	// 아웃라인 매니저 캐싱
+	UPROPERTY()
+	TObjectPtr<class ASurvivorOutlineManager> OutlineManager;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+
+	virtual void OnRep_Controller() override;
 	//기본 컴포넌트
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="DefaultComponent")
 	TObjectPtr<UCameraComponent> CameraComponent;
@@ -42,16 +49,6 @@ protected:
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category = "DefaultComponent")
 	TObjectPtr<USpringArmComponent> PivotForMesh1P;
-	
-	// 아웃라인 매니저 캐싱
-	UPROPERTY()
-	TObjectPtr<class ASurvivorOutlineManager> OutlineManager;
-
-	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="FootStepSound")
-	TObjectPtr<USoundBase> FootStepSound;
-	
-	UFUNCTION(NetMulticast,Unreliable)
-	void Multicast_PlayFootstepSound();
 	
 	// 인풋 액션
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="InputAction")
@@ -74,13 +71,18 @@ protected:
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="InputAction")
 	TObjectPtr<UInputAction> Skill1Action;
+
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="FootStepSound")
+	TObjectPtr<USoundBase> FootStepSound;
+	
+	UFUNCTION(NetMulticast,Unreliable)
+	void Multicast_PlayFootstepSound();
 	
 	//인풋 액션 바인딩 함수
 	void Move(const FInputActionValue& ActionValue);
 	void Look(const FInputActionValue& ActionValue);
 	void EndPlay(EEndPlayReason::Type EndPlayReason);
-	
-	
 	UFUNCTION(Server,Reliable)
 	void Attack(const FInputActionValue& ActionValue);
 	UFUNCTION(Server,Reliable)
@@ -161,10 +163,4 @@ protected:
 	/** 충돌 채널 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat")
 	TEnumAsByte<ECollisionChannel> TraceChannel = ECC_Pawn;
-
-	
-public:	
-	// Called to bind functionality to input
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-	
 };

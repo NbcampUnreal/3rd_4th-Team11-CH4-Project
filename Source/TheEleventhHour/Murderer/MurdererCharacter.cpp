@@ -52,8 +52,7 @@ void AMurdererCharacter::Tick(float DeltaSeconds)
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(
-			666, 1.0f, FColor::Green,
-			FString::Printf(TEXT("SprintGauge: %f"), SprintGauge)
+			666, 1.0f, FColor::Green,FString::Printf(TEXT("SprintGauge: %f"), SprintGauge)
 		);
 
 		GEngine->AddOnScreenDebugMessage(
@@ -84,6 +83,26 @@ void AMurdererCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProper
 	DOREPLIFETIME(ThisClass,SprintGauge);
 	DOREPLIFETIME_CONDITION_NOTIFY(ThisClass,bCanSkill1Use,COND_OwnerOnly,REPNOTIFY_OnChanged)
 }
+
+void AMurdererCharacter::OnRep_Controller()
+{
+	Super::OnRep_Controller();
+
+	if (!IsLocallyControlled()) return;
+	if (OutlineManager)
+	{
+		OutlineManager->AfterPossess();
+	}
+	else if (!OutlineManager)
+	{
+		for (TActorIterator<ASurvivorOutlineManager> It(GetWorld());It;++It)
+		{
+			OutlineManager = *It;
+		}
+		OutlineManager->AfterPossess();
+	}
+}
+
 
 void AMurdererCharacter::Server_PlayFootstepSound_Implementation()
 {
