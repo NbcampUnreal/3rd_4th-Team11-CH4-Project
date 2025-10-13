@@ -11,6 +11,7 @@
 #include "gimmick/Keypad/MultiKeypad.h"
 #include "DrawDebugHelpers.h"
 #include "EngineUtils.h"
+#include "Blueprint/UserWidget.h"
 #include "Item/Chest/Chest.h"
 #include "GameFramework/DamageType.h"
 #include "Engine/DamageEvents.h"
@@ -18,6 +19,7 @@
 #include "GameMode/PlayerState/InGamePlayerState.h"
 #include "GameMode/Prison/PrisonManager.h"
 #include "Item/Inventory/InventoryComponent.h"
+#include "UI/Widgets/InGameHUD/Status/InteractProgressWidget.h"
 #include "Net/UnrealNetwork.h"
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
@@ -111,6 +113,12 @@ void AEHSurvivorCharacter::BeginPlay()
 	if (AInGamePlayerState* PS = GetPlayerState<AInGamePlayerState>())
 	{
 		HandleStateChange(PS->SurvivorState);
+	}
+
+	//상호작용 UI 위젯 생성
+	if (IsLocallyControlled() && InteractProgressClass)
+	{
+		InteractProgressWidget = Cast<UInteractProgressWidget>(CreateWidget<UUserWidget>(GetWorld(), InteractProgressClass));
 	}
 }
 
@@ -214,20 +222,25 @@ void AEHSurvivorCharacter::HandleStateChange(ESurvivorState NewState)
 	{
 	case ESurvivorState::Captured:
 		{
-			// 감옥 매니저 찾아서 이동
-			for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
+			if (HasAuthority())
 			{
-				if (APrisonManager* Prison = *It)
+				for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
 				{
-					Prison->Capture(this);
-					break;
+					if (APrisonManager* Prison = *It)
+					{
+						Prison->Capture(this);
+						break;
+					}
 				}
+			}
+			else
+			{
+				ServerRequestCapture(); // 클라면 서버로 RPC 요청
 			}
 			break;
 		}
 	case ESurvivorState::Alive:
 		{
-			// 구출 후 이동 복구
 			GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 			EnableInput(nullptr);
 			bIsDead = false;
@@ -235,6 +248,18 @@ void AEHSurvivorCharacter::HandleStateChange(ESurvivorState NewState)
 		}
 	default:
 		break;
+	}
+}
+
+void AEHSurvivorCharacter::ServerRequestCapture_Implementation()
+{
+	for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
+	{
+		if (APrisonManager* Prison = *It)
+		{
+			Prison->Capture(this);
+			break;
+		}
 	}
 }
 
@@ -285,8 +310,7 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	PlayerInputComponent->BindKey(EKeys::T, IE_Pressed, this, &AEHSurvivorCharacter::Debug_TakeDamage);
 	PlayerInputComponent->BindKey(EKeys::One, IE_Pressed, this, &AEHSurvivorCharacter::UseSlot0);
 	PlayerInputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AEHSurvivorCharacter::UseSlot1);
-	PlayerInputComponent->BindKey(EKeys::R, IE_Pressed, this, &AEHSurvivorCharacter::TryRescue); // 🔹 Rescue 추가
-	
+
 	UEnhancedInputComponent* EIC = CastChecked<UEnhancedInputComponent>(PlayerInputComponent);
 
 	EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
@@ -296,6 +320,16 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
 	EIC->BindAction(InteractAction, ETriggerEvent::Completed, this, &AEHSurvivorCharacter::ServerRPCCancelInteract);
 	EIC->BindAction(CrossAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartCross);
+	
+	// ✅ 새로 추가
+	if (RescueAction)
+	{
+		EIC->BindAction(RescueAction, ETriggerEvent::Started, this, &ThisClass::TryRescue);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Input] RescueAction not set on %s"), *GetName());
+	}
 }
 //======================================================================
 
@@ -533,6 +567,38 @@ void AEHSurvivorCharacter::ServerRPCInteract_Implementation()
 {
 	StartInteraction();
 }
+
+void AEHSurvivorCharacter::OnRep_SetInteractUI()
+{
+	if (InteractActor && InteractProgressWidget)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("InteractUI AddToViewport!"));
+		InteractProgressWidget->AddToViewport();
+		GetWorldTimerManager().SetTimer(InteractUIUpdateTimerHandle,this,&AEHSurvivorCharacter::UpdateProgressUI,0.2f,true);
+	}
+	if (!InteractActor && InteractProgressWidget)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("InteractUI Remove!"));
+		InteractProgressWidget->RemoveFromParent();
+		GetWorldTimerManager().ClearTimer(InteractUIUpdateTimerHandle);
+	}
+}
+
+void AEHSurvivorCharacter::UpdateProgressUI()
+{
+
+	if (AGenerators* NowActor = Cast<AGenerators>(InteractActor))
+	{
+		float Progress = NowActor->GetRepairProgress() * 0.01f;
+		InteractProgressWidget->SetProgress(Progress);
+	}
+	if (AMultiKeypad* NowActor = Cast<AMultiKeypad>(InteractActor))
+	{
+		float Progress = NowActor->GetKeypadProgress() * 0.01f;
+		InteractProgressWidget->SetProgress(Progress);
+	}
+}
+
 //======================================================================
 
 //============================== 상태변환 ==============================

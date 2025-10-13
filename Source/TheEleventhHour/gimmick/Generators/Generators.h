@@ -88,9 +88,6 @@ private:
 	//발전기 작동 표시
 	UFUNCTION()
 	void OnRep_RepairCount();
-	//수리 진행도 UI 업데이트
-	UFUNCTION(NetMulticast, Unreliable)
-	void MulticastRPCUpdateUI();
 	//발전기 수리 디버깅
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastRPCShowRepairProgress();

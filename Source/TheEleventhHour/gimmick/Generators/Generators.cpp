@@ -36,6 +36,8 @@ AGenerators::AGenerators()
 
 	//Replicate 활성화
 	bReplicates = true;
+
+	bAlwaysRelevant = true;
 }
 
 void AGenerators::StartRepair(AEHSurvivorCharacter* Survivor)
@@ -126,7 +128,6 @@ void AGenerators::RepairGenerator()
 	
 	//디버깅 메시지
 	MulticastRPCShowRepairProgress();
-	MulticastRPCUpdateUI();
 	
 	//수리가 완료될 경우
 	if (RepairProgress >= 100.f)
@@ -140,6 +141,14 @@ void AGenerators::CompleteGenerator()
 {
 	if (HasAuthority())
 	{
+		for (AEHSurvivorCharacter* Survivor : InteractSurvivors)
+		{
+			if (IsValid(Survivor))
+			{
+				Survivor->ServerRPCCancelInteract();
+			}
+		}
+		
 		AInGameGameMode* GM = Cast<AInGameGameMode>(GetWorld()->GetAuthGameMode());
 		if (GM)
 		{
@@ -192,25 +201,6 @@ void AGenerators::OnRep_RepairCount()
 		{
 			MeshComponent->SetRenderCustomDepth(false);
 			MeshComponent->SetCustomDepthStencilValue(0);
-		}
-	}
-}
-
-void AGenerators::MulticastRPCUpdateUI_Implementation()
-{
-	//플레이어가 상호작용 중인지 확인
-	if (AEHSurvivorCharacter* LocalSurvivor = Cast<AEHSurvivorCharacter>(GetWorld()->GetFirstPlayerController()->GetPawn()))
-	{
-		if (InteractSurvivors.Contains(LocalSurvivor))
-		{
-			FString DeMsg = FString::Printf(TEXT("Now MultiRPCUpdated."));
-			GEngine->AddOnScreenDebugMessage(-1, RepairDuration - 0.01f, FColor::Orange, DeMsg);
-			//UI이벤트
-		}
-		else
-		{
-			FString DeMsg = FString::Printf(TEXT("Now MultiRPCUpdated Failed."));
-			GEngine->AddOnScreenDebugMessage(-1, RepairDuration - 0.01f, FColor::Red, DeMsg);
 		}
 	}
 }
