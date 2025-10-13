@@ -38,8 +38,10 @@ protected:
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category = "DefaultComponent")
 	TObjectPtr<USpringArmComponent> PivotForMesh1P;
-	// UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="DefaultComponent")
-	// TObjectPtr<USpringArmComponent> SpringArmComponent;
+
+	// 아웃라인 매니저 캐싱
+	UPROPERTY()
+	TObjectPtr<class ASurvivorOutlineManager> OutlineManager;
 	
 	// 인풋 액션
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="InputAction")
@@ -59,11 +61,15 @@ protected:
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="InputAction")
 	TObjectPtr<UInputAction> VaultAction;
+
+	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="InputAction")
+	TObjectPtr<UInputAction> Skill1Action;
 	
 	//인풋 액션 바인딩 함수
 	void Move(const FInputActionValue& ActionValue);
 	void Look(const FInputActionValue& ActionValue);
 	void EndPlay(EEndPlayReason::Type EndPlayReason);
+	
 	
 	UFUNCTION(Server,Reliable)
 	void Attack(const FInputActionValue& ActionValue);
@@ -77,13 +83,22 @@ protected:
 	float BaseSpeed;
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Variables")
 	float SprintSpeed;
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category="Variables")
+	float Skill1CooldownDuration=30.0f;
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category="Variables")
+	float Skill1Duration=5.0f;
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Variables")
 	bool bCanAttack = true;
 	UPROPERTY(ReplicatedUsing=OnRep_bIsSprint,VisibleAnywhere,BlueprintReadOnly,Category="Variables")
 	bool bIsSprint;
-
+	UPROPERTY(ReplicatedUsing=OnRep_bCanSkill1Use,VisibleAnywhere,BlueprintReadOnly,Category="Variables")
+	bool bCanSkill1Use = true;
+	
 	FTimerHandle SprintStartTimerHandle;
 	FTimerHandle SprintEndTimerHandle;
+	FTimerHandle Skill1CollDownTimerHandle;
+	FTimerHandle Skill1DurationTimerHandle;
+	FTimerHandle AttackTimerHandle;
 	
 	const float MaxSprintGauge=100; //100
 	UPROPERTY(Replicated, VisibleAnywhere,BlueprintReadOnly,Category="Variables")
@@ -91,7 +106,12 @@ protected:
 	
 	UFUNCTION()
 	void OnRep_bIsSprint();
-	
+
+	UFUNCTION()
+	void OnRep_bCanSkill1Use();
+
+	UFUNCTION(Server,Reliable)
+	void Skill1();
 	/* 공격 관련 */
 	UFUNCTION(BlueprintCallable, Category="Combat")
 	void PerformMeleeHit();
@@ -109,16 +129,16 @@ protected:
 	void BeginMeleeSwingWindow();
 	/** 디버그 그리기 여부 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat|Debug")
-	bool bDrawDebug = false;
+	bool bDrawDebug = true;
 	/* 전방 스윕 거리 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat")
 	float MeleeRange = 150.f;
 	/* 스윕 구체 반경 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat")
-	float MeleeRadius = 60.f;
+	float MeleeRadius = 120.f;
 	/* 기본 데미지 값 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat")
-	float MeleeDamage = 25.f;
+	float MeleeDamage = 50.f;
 	/** 데미지 타입 */
 	UPROPERTY(EditDefaultsOnly, Category="Combat")
 	TSubclassOf<UDamageType> DamageTypeClass;

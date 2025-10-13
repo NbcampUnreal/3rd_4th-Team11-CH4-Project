@@ -18,19 +18,20 @@ void AInGameGameState::IncrementLoadedPlayers()
 	OnRep_LoadedPlayers(); // 서버에서도 즉시 로그/검증
 }
 
-void AInGameGameState::AddGeneratorProgress(int32 Delta /*=1*/)
+void AInGameGameState::SetGeneratorsRepaired(int32 NewCount)
 {
 	if (!HasAuthority()) return;
 
-	const int32 Old = GeneratorsRepaired;
-	GeneratorsRepaired = FMath::Clamp(GeneratorsRepaired + Delta, 0, 5);
+	NewCount = FMath::Clamp(NewCount, 0, 5);
 
-	if (Old != GeneratorsRepaired)
+	if (GeneratorsRepaired != NewCount)
 	{
-		UE_LOG(LogTemp, Log, TEXT("[GS] Generators: %d / 5"), GeneratorsRepaired);
+		GeneratorsRepaired = NewCount;
 		OnRep_GeneratorsRepaired();
+		UE_LOG(LogTemp, Log, TEXT("[GS] Generators updated: %d / 5"), GeneratorsRepaired);
 	}
 }
+
 
 void AInGameGameState::OpenExitGate()
 {

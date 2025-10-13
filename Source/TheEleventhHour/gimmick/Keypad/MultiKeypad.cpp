@@ -48,9 +48,10 @@ void AMultiKeypad::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AMultiKeypad, bIsProgressing);
 	DOREPLIFETIME(AMultiKeypad, bIsCompleted);
 	DOREPLIFETIME(AMultiKeypad, bIsCanInteract);
+	DOREPLIFETIME(AMultiKeypad, InteractSurvivor);
 }
 
-void AMultiKeypad::StartProgress()
+void AMultiKeypad::StartProgress(AEHSurvivorCharacter* Survivor)
 {
 	//발전기가 다 수리되어야 상호작용 가능
 	if (!bIsCanInteract) return;
@@ -61,6 +62,11 @@ void AMultiKeypad::StartProgress()
 	if (bIsCompleted) return;
 	if (bIsProgressing) return;
 
+	if (Survivor && !InteractSurvivor)
+	{
+		InteractSurvivor = Survivor;
+	}
+	
 	bIsProgressing = true;
 	
 	//타이머 핸들이 없을 경우 초기에 한번만 생성
@@ -68,14 +74,19 @@ void AMultiKeypad::StartProgress()
 	GetWorldTimerManager().SetTimer(ProgressTimerHandle,this,&AMultiKeypad::ProgressKeypad,ProgressDuration,true);
 }
 
-void AMultiKeypad::StopProgress()
+void AMultiKeypad::StopProgress(AEHSurvivorCharacter* Survivor)
 {
 	//서버에서만 실행
 	if (!HasAuthority()) return;
 
+	if (Survivor)
+	{
+		InteractSurvivor = nullptr;
+	}
+	
 	//false 처리
 	bIsProgressing = false;
-
+	
 	MulticastRPCStopPlaySound();
 	GetWorldTimerManager().ClearTimer(ProgressTimerHandle);
 }
@@ -174,7 +185,7 @@ void AMultiKeypad::MulticastRPCShowKeypad_Implementation()
 	if (MeshComponent)
 	{
 		MeshComponent->SetRenderCustomDepth(true);
-		MeshComponent->SetCustomDepthStencilValue(1);
+		MeshComponent->SetCustomDepthStencilValue(3);
 	}
 	UGameplayStatics::PlaySoundAtLocation(this,SirenSound,GetActorLocation());
 }

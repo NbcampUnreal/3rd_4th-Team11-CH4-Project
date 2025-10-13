@@ -52,13 +52,31 @@ void APrisonManager::Capture(AEHSurvivorCharacter* Victim)
 	{
 		CapturedSurvivors.Add(Victim);
 
-		// 감옥 위치로 이동
-		FVector PrisonLoc = GetActorLocation() + FVector(0, 0, 50.f);
-		Victim->TeleportTo(PrisonLoc, GetActorRotation(), false, true);
+		// ✅ 감옥 위치로 이동 (Spawn.Prison 우선)
+		AActor* PrisonSpot = nullptr;
+		for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+		{
+			if (It->PlayerStartTag == FName("Spawn.Prison"))
+			{
+				PrisonSpot = *It;
+				break;
+			}
+		}
 
-		// 이동 및 입력 제한
-		Victim->DisableInput(nullptr);
-		Victim->GetCharacterMovement()->DisableMovement();
+		if (PrisonSpot)
+		{
+			FVector PrisonLoc = PrisonSpot->GetActorLocation();
+			FRotator PrisonRot = PrisonSpot->GetActorRotation();
+			Victim->TeleportTo(PrisonLoc, PrisonRot, false, true);
+			UE_LOG(LogTemp, Warning, TEXT("[Prison] %s teleported to Spawn.Prison (%s)"),
+				*Victim->GetName(), *PrisonSpot->GetName());
+		}
+		else
+		{
+			FVector PrisonLoc = GetActorLocation() + FVector(0, 0, 50.f);
+			Victim->TeleportTo(PrisonLoc, GetActorRotation(), false, true);
+			UE_LOG(LogTemp, Warning, TEXT("[Prison] No Spawn.Prison found! Used manager location instead."));
+		}
 
 		// 상태 변경
 		if (AInGamePlayerState* PS = Victim->GetPlayerState<AInGamePlayerState>())
@@ -69,6 +87,7 @@ void APrisonManager::Capture(AEHSurvivorCharacter* Victim)
 		UE_LOG(LogTemp, Warning, TEXT("[Prison] %s captured and moved to prison."), *Victim->GetName());
 	}
 }
+
 
 /* -------------------- 구출 시작 -------------------- */
 void APrisonManager::StartRescue_Implementation(AEHSurvivorCharacter* Rescuer)
@@ -84,12 +103,12 @@ void APrisonManager::StartRescue_Implementation(AEHSurvivorCharacter* Rescuer)
 	}
 
 	CurrentRescuer = Rescuer;
-	UE_LOG(LogTemp, Log, TEXT("[Prison] Rescue started by %s"), *Rescuer->GetName());
+	UE_LOG(LogTemp, Warning, TEXT("[Prison] Rescue started by %s (SERVER)"), *Rescuer->GetName());
 
 	if (LinkedGameMode)
 		LinkedGameMode->NotifyRescueStarted(Rescuer);
 
-	// RescueDuration 초 후 완료
+	UE_LOG(LogTemp, Warning, TEXT("[Prison] Starting rescue timer: %.2f sec"), RescueDuration);
 	GetWorldTimerManager().SetTimer(RescueTimer, this, &APrisonManager::CompleteRescue, RescueDuration, false);
 }
 

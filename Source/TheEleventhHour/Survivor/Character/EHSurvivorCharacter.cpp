@@ -28,6 +28,7 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	, InteractActor(nullptr)
 	, bIsCrouching(false)
 	, bIsInteracting(false)
+	, bIsVaulting(false)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	// 레플리케이션 설정
@@ -118,6 +119,7 @@ void AEHSurvivorCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ThisClass, bCanAttack);
+	DOREPLIFETIME(ThisClass, bIsDead);
 	DOREPLIFETIME(ThisClass, bIsInteracting);
 	DOREPLIFETIME(ThisClass, InteractActor);
 }
@@ -212,20 +214,25 @@ void AEHSurvivorCharacter::HandleStateChange(ESurvivorState NewState)
 	{
 	case ESurvivorState::Captured:
 		{
-			// 감옥 매니저 찾아서 이동
-			for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
+			if (HasAuthority())
 			{
-				if (APrisonManager* Prison = *It)
+				for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
 				{
-					Prison->Capture(this);
-					break;
+					if (APrisonManager* Prison = *It)
+					{
+						Prison->Capture(this);
+						break;
+					}
 				}
+			}
+			else
+			{
+				ServerRequestCapture(); // 클라면 서버로 RPC 요청
 			}
 			break;
 		}
 	case ESurvivorState::Alive:
 		{
-			// 구출 후 이동 복구
 			GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 			EnableInput(nullptr);
 			bIsDead = false;
@@ -233,6 +240,18 @@ void AEHSurvivorCharacter::HandleStateChange(ESurvivorState NewState)
 		}
 	default:
 		break;
+	}
+}
+
+void AEHSurvivorCharacter::ServerRequestCapture_Implementation()
+{
+	for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
+	{
+		if (APrisonManager* Prison = *It)
+		{
+			Prison->Capture(this);
+			break;
+		}
 	}
 }
 
@@ -283,17 +302,26 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	PlayerInputComponent->BindKey(EKeys::T, IE_Pressed, this, &AEHSurvivorCharacter::Debug_TakeDamage);
 	PlayerInputComponent->BindKey(EKeys::One, IE_Pressed, this, &AEHSurvivorCharacter::UseSlot0);
 	PlayerInputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AEHSurvivorCharacter::UseSlot1);
-	PlayerInputComponent->BindKey(EKeys::R, IE_Pressed, this, &AEHSurvivorCharacter::TryRescue); // 🔹 Rescue 추가
-	
+
 	UEnhancedInputComponent* EIC = CastChecked<UEnhancedInputComponent>(PlayerInputComponent);
 
 	EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ThisClass::Move);
 	EIC->BindAction(LookAction, ETriggerEvent::Triggered, this, &ThisClass::Look);
 	EIC->BindAction(CrouchAction, ETriggerEvent::Started, this, &ThisClass::ToggleCrouch);
-	EIC->BindAction(WalkAction, ETriggerEvent::Started, this, &ThisClass::Walk);
 	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::AttackInput);
 	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
 	EIC->BindAction(InteractAction, ETriggerEvent::Completed, this, &AEHSurvivorCharacter::ServerRPCCancelInteract);
+	EIC->BindAction(CrossAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartCross);
+	
+	// ✅ 새로 추가
+	if (RescueAction)
+	{
+		EIC->BindAction(RescueAction, ETriggerEvent::Started, this, &ThisClass::TryRescue);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Input] RescueAction not set on %s"), *GetName());
+	}
 }
 //======================================================================
 
@@ -305,6 +333,8 @@ void AEHSurvivorCharacter::Move(const FInputActionValue& value)
 		UE_LOG(LogTemp, Error, TEXT("Controller is invalid."));
 		return;
 	}
+	
+	if (bIsVaulting) return;
 	
 	const FVector2D InMovementVector = value.Get<FVector2D>();
 
@@ -375,14 +405,11 @@ void AEHSurvivorCharacter::ToggleCrouch(const FInputActionValue& value)
 		UE_LOG(LogTemp, Warning, TEXT("Crouch!"));
 	}
 }
+
 //======================================================================
 
 //============================== 파쿠르(예정) ==============================
 void AEHSurvivorCharacter::StartCross(const FInputActionValue& value)
-{
-}
-
-void AEHSurvivorCharacter::EndCross(const FInputActionValue& value)
 {
 }
 //======================================================================
@@ -505,7 +532,7 @@ void AEHSurvivorCharacter::ServerRPCStartInteract_Implementation()
 	}
 	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
 	{
-		Keypad->StartProgress();
+		Keypad->StartProgress(this);
 	}
 }
 
@@ -518,7 +545,7 @@ void AEHSurvivorCharacter::ServerRPCCancelInteract_Implementation()
 	}
 	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
 	{
-		Keypad->StopProgress();
+		Keypad->StopProgress(this);
 		UE_LOG(LogTemp, Log, TEXT("Keypad Cancel"));
 	}
 	InteractActor = nullptr;
@@ -545,15 +572,13 @@ void AEHSurvivorCharacter::UpdateSurvivorState(ESurvivorState NewState)
 }
 
 //============================== 테스트용 ==============================
-void AEHSurvivorCharacter::Walk(const FInputActionValue& value)
-{
-	
-}
+
 //======================================================================
 
 //============================== 공격 ==============================
 void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value) // 공격 인풋
 {
+	if (bIsVaulting) return;
 	if (true == bCanAttack && GetCharacterMovement()->IsFalling() == false)
 	{
 		ServerRPCAttack();
@@ -593,12 +618,16 @@ void AEHSurvivorCharacter::ServerAttackTrace_Implementation() // 공격판정 �
 	FVector Forward = GetActorForwardVector();
 	FVector End = Start + (Forward * 150.f);
 
+	FCollisionShape Sphere = FCollisionShape::MakeSphere(50.f);
+
 	FHitResult HitResult;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
 
 	DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 2.0f, 0, 3.0f);
-	if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_WorldDynamic, Params))
+	DrawDebugSphere(GetWorld(), End, 50.f, 12, FColor::Blue, false, 2.0f);
+	
+	if (GetWorld()->SweepSingleByChannel(HitResult, Start, End, FQuat::Identity, ECC_WorldDynamic, Sphere, Params))
 	{
 		if (AChest* Chest = Cast<AChest>(HitResult.GetActor()))
 		{

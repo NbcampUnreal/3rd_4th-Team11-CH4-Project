@@ -135,11 +135,25 @@ void UEHGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCom
 		if (SessionInterface->GetResolvedConnectString(SessionName, ConnectString))
 		{
 			UE_LOG(LogTemp, Log, TEXT("[Client] Travel to %s"), *ConnectString);
-			GetFirstLocalPlayerController()->ClientTravel(ConnectString, TRAVEL_Absolute);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("[Client] Failed to resolve connect string."));
+
+			// ✅ 안전한 호출 (PlayerController가 없으면 지연 호출)
+			if (APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+			{
+				PC->ClientTravel(ConnectString, ETravelType::TRAVEL_Absolute);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[Client] No PlayerController yet. Delaying travel."));
+				FTimerHandle DelayHandle;
+				GetWorld()->GetTimerManager().SetTimer(DelayHandle, FTimerDelegate::CreateLambda([=, this]()
+				{
+					if (APlayerController* PC2 = UGameplayStatics::GetPlayerController(GetWorld(), 0))
+					{
+						PC2->ClientTravel(ConnectString, ETravelType::TRAVEL_Absolute);
+					}
+				}), 0.5f, false);
+
+			}
 		}
 	}
 	else
@@ -147,3 +161,4 @@ void UEHGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCom
 		UE_LOG(LogTemp, Error, TEXT("[Client] JoinSession failed: %d"), (int32)Result);
 	}
 }
+

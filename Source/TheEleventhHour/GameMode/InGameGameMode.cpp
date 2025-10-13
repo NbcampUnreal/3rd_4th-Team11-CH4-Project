@@ -16,7 +16,7 @@
 #include "Kismet/GameplayStatics.h"
 
 AInGameGameMode::AInGameGameMode()
-	: GeneratorCount(1)
+	: PrisonManager(nullptr), GeneratorCount(1)
 {
 	bUseSeamlessTravel = true;
 
@@ -308,11 +308,16 @@ void AInGameGameMode::CheckVictoryConditions()
 		return;
 	}
 
+	// 🔹 발전기 1개 작동 완료 시
+	if (GeneratorCount <= 0)
+	{
+		EndGame(TEXT("Generator is Repaired!"));
+	}
+	
 	// 🔹 킬러 승리 조건 (모두 포획 or 사망)
 	if (AliveOrInjured == 0 && Captured > 0)
 	{
 		EndGame(TEXT("Killer wins! All survivors captured!"));
-		return;
 	}
 }
 
@@ -335,23 +340,44 @@ void AInGameGameMode::EndGame(const FString& Reason)
 /* -------------------- 발전기 -------------------- */
 void AInGameGameMode::CompletedRepair()
 {
+	if (!HasAuthority()) return;
+
 	GeneratorCount--;
+	UE_LOG(LogTemp, Log, TEXT("[GM] GeneratorCount decreased: %d"), GeneratorCount);
+
+	AInGameGameState* GS = GetGameState<AInGameGameState>();
+	if (GS)
+	{
+		// ✅ GameState에 정확한 수치로 설정
+		const int32 RepairedCount = 5 - FMath::Max(0, GeneratorCount);
+		GS->SetGeneratorsRepaired(RepairedCount);
+	}
+
 	if (GeneratorCount <= 0)
 	{
 		for (TActorIterator<AMultiKeypad> It(GetWorld()); It; ++It)
+		{
 			if (AMultiKeypad* Keypad = *It)
 				Keypad->SetCanInteract(true);
+		}
+		UE_LOG(LogTemp, Log, TEXT("[GM] All generators repaired. Keypads unlocked."));
 	}
 }
+
 
 /* -------------------- 감옥 이동 -------------------- */
 void AInGameGameMode::SendToPrison(AInGamePlayerState* CapturedPlayer)
 {
-	if (!HasAuthority() || !CapturedPlayer || !PrisonManager) return;
+	if (!HasAuthority() || !CapturedPlayer) return;
 
-	if (APlayerController* PC = Cast<APlayerController>(CapturedPlayer->GetOwner()))
-	{
-		if (AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(PC->GetPawn()))
-			CapturePlayer(Survivor);
-	}
+	APlayerController* PC = Cast<APlayerController>(CapturedPlayer->GetOwner());
+	if (!PC) return;
+
+	AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(PC->GetPawn());
+	if (!Survivor || !PrisonManager) return;
+
+	// ✅ 수감은 반드시 PrisonManager가 수행 (배열 갱신 + 상태/이동 포함)
+	PrisonManager->Capture(Survivor);
+
+	EvaluateAllPlayerStates();
 }

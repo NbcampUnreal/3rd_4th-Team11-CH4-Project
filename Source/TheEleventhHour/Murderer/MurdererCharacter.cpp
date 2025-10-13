@@ -3,14 +3,17 @@
 
 #include "Murderer/MurdererCharacter.h"
 
+#include "EngineUtils.h"
 #include "EnhancedInputSubsystems.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "EnhancedInputComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameMode/PlayerState/InGamePlayerState.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
-
+#include "Survivor/Character/EHSurvivorCharacter.h"
+#include "Murderer/OutlineManager/SurvivorOutlineManager.h"
 
 // Sets default values
 AMurdererCharacter::AMurdererCharacter()
@@ -60,7 +63,11 @@ void AMurdererCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	HitActorsThisSwing.Reset();
-	
+
+	for (TActorIterator<ASurvivorOutlineManager> It(GetWorld());It;++It)
+	{
+		OutlineManager=*It;
+	}
 }
 
 void AMurdererCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -69,6 +76,7 @@ void AMurdererCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProper
 
 	DOREPLIFETIME(ThisClass,bIsSprint);
 	DOREPLIFETIME(ThisClass,SprintGauge);
+	DOREPLIFETIME(ThisClass,bCanSkill1Use);
 }
 
 // Called to bind functionality to input
@@ -93,6 +101,47 @@ void AMurdererCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	tmp->BindAction(AttackAction,ETriggerEvent::Started,this, &ThisClass::Attack);
 	tmp->BindAction(SprintAction,ETriggerEvent::Started,this,&ThisClass::StartSprint);
 	tmp->BindAction(SprintAction,ETriggerEvent::Completed,this,&ThisClass::EndSprint);
+	tmp->BindAction(Skill1Action,ETriggerEvent::Started,this,&ThisClass::Skill1);
+}
+
+void AMurdererCharacter::Skill1_Implementation()
+{
+	if (bCanSkill1Use)
+	{
+		bCanSkill1Use=false;
+		//30초 쿨다운
+		GetWorldTimerManager().SetTimer(
+			Skill1CollDownTimerHandle,
+			[this]()
+			{
+				bCanSkill1Use=true;
+			},
+			Skill1CooldownDuration,
+			false);
+	}
+}
+void AMurdererCharacter::OnRep_bCanSkill1Use()
+{
+	if (IsLocallyControlled()) // 살인마가 아니면 얼리 엑시트 시키기
+	{
+		if (bCanSkill1Use==false) // 서버에서 스킬 사용한 뒤 레플리케이션 됐다면
+		{
+			if (OutlineManager)
+			{
+				OutlineManager->SetSurvivorOverlayTransparent();
+
+				GetWorldTimerManager().SetTimer(
+					Skill1DurationTimerHandle,
+					[this]()
+					{
+						//5초만 생존자 전체 위치 노출
+						OutlineManager->DisableSurvivorOverlayTransparent();
+					},
+					Skill1Duration,
+					false);
+			}
+		}
+	}
 }
 
 void AMurdererCharacter::Move(const FInputActionValue& InputValue)
@@ -140,6 +189,7 @@ void AMurdererCharacter::StartSprint_Implementation()
 		,0.1f
 		,true
 		,0.0f);
+	
 }
 
 
@@ -178,11 +228,27 @@ void AMurdererCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	// 수명 종료 시 안전 정리 (람다에서 this 캡처 중이므로 필수)
 	GetWorldTimerManager().ClearTimer(SprintStartTimerHandle);
 	GetWorldTimerManager().ClearTimer(SprintEndTimerHandle);
+	GetWorldTimerManager().ClearTimer(Skill1CollDownTimerHandle);
+	GetWorldTimerManager().ClearTimer(Skill1DurationTimerHandle);
 }
 
 void AMurdererCharacter::Attack_Implementation(const FInputActionValue& ActionValue)
 {
-	NetMulticast_PlayAttackAnimMontage();
+	if (bCanAttack)
+	{
+		NetMulticast_PlayAttackAnimMontage();
+		
+		bCanAttack=false;
+		
+		GetWorldTimerManager().SetTimer(
+		AttackTimerHandle,
+		[this]()
+		{
+			bCanAttack=true;
+		},
+		5.0f,
+		false);
+	}
 }
 
 void AMurdererCharacter::NetMulticast_PlayAttackAnimMontage_Implementation()
@@ -280,7 +346,6 @@ void AMurdererCharacter::PerformMeleeHit()
 		}
 	}
 	UE_LOG(LogTemp,Log,TEXT(__FUNCTION__));
-
 }
 
 
