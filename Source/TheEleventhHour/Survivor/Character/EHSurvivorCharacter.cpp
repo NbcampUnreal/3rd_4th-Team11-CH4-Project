@@ -308,6 +308,8 @@ void AEHSurvivorCharacter::Move(const FInputActionValue& value)
 		return;
 	}
 	
+	if (bIsVaulting) return;
+	
 	const FVector2D InMovementVector = value.Get<FVector2D>();
 
 	const FRotator ControlRotation = Controller->GetControlRotation();
@@ -550,6 +552,7 @@ void AEHSurvivorCharacter::UpdateSurvivorState(ESurvivorState NewState)
 //============================== 공격 ==============================
 void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value) // 공격 인풋
 {
+	if (bIsVaulting) return;
 	if (true == bCanAttack && GetCharacterMovement()->IsFalling() == false)
 	{
 		ServerRPCAttack();
@@ -589,12 +592,16 @@ void AEHSurvivorCharacter::ServerAttackTrace_Implementation() // 공격판정 �
 	FVector Forward = GetActorForwardVector();
 	FVector End = Start + (Forward * 150.f);
 
+	FCollisionShape Sphere = FCollisionShape::MakeSphere(50.f);
+
 	FHitResult HitResult;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
 
 	DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 2.0f, 0, 3.0f);
-	if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_WorldDynamic, Params))
+	DrawDebugSphere(GetWorld(), End, 50.f, 12, FColor::Blue, false, 2.0f);
+	
+	if (GetWorld()->SweepSingleByChannel(HitResult, Start, End, FQuat::Identity, ECC_WorldDynamic, Sphere, Params))
 	{
 		if (AChest* Chest = Cast<AChest>(HitResult.GetActor()))
 		{

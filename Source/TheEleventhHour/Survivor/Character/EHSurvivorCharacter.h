@@ -144,6 +144,7 @@ protected:
 	bool bIsInteracting;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
 	bool bIsWalking;
+	UPROPERTY(BlueprintReadWrite)
 	bool bIsVaulting;
 	// --------------------
 
