@@ -23,14 +23,14 @@
 #include "Net/UnrealNetwork.h"
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
-	:InterActionLength(300.0f)
-	, bCanAttack(true)
+	: bCanAttack(true)
 	, AttackMontagePlayTime(0.f)
 	, DeathMontagePlayTime(0.f)
-	, InteractActor(nullptr)
 	, bIsCrouching(false)
 	, bIsInteracting(false)
 	, bIsVaulting(false)
+	, InterActionLength(300.0f)
+	, InteractActor(nullptr)
 {
 	PrimaryActorTick.bCanEverTick = true;
 	// 레플리케이션 설정
@@ -319,7 +319,6 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(AttackAction, ETriggerEvent::Started, this, &ThisClass::AttackInput);
 	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
 	EIC->BindAction(InteractAction, ETriggerEvent::Completed, this, &AEHSurvivorCharacter::ServerRPCCancelInteract);
-	EIC->BindAction(CrossAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartCross);
 	
 	// ✅ 새로 추가
 	if (RescueAction)
@@ -338,7 +337,6 @@ void AEHSurvivorCharacter::Move(const FInputActionValue& value)
 {
 	if (IsValid(Controller) == false)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Controller is invalid."));
 		return;
 	}
 	
@@ -362,7 +360,6 @@ void AEHSurvivorCharacter::Look(const FInputActionValue& value)
 {
 	if (IsValid(Controller) == false)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Controller is invalid."));
 		return;
 	}
 	
@@ -405,21 +402,13 @@ void AEHSurvivorCharacter::ToggleCrouch(const FInputActionValue& value)
 	if (bIsCrouching)
 	{
 		UnCrouch();
-		UE_LOG(LogTemp, Warning, TEXT("UnCrouch!"));
 	}
 	else
 	{
 		Crouch();
-		UE_LOG(LogTemp, Warning, TEXT("Crouch!"));
 	}
 }
 
-//======================================================================
-
-//============================== 파쿠르(예정) ==============================
-void AEHSurvivorCharacter::StartCross(const FInputActionValue& value)
-{
-}
 //======================================================================
 
 //============================== 상호작용 ==============================
@@ -611,10 +600,6 @@ void AEHSurvivorCharacter::UpdateSurvivorState(ESurvivorState NewState)
 	}
 }
 
-//============================== 테스트용 ==============================
-
-//======================================================================
-
 //============================== 공격 ==============================
 void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value) // 공격 인풋
 {
@@ -672,12 +657,7 @@ void AEHSurvivorCharacter::ServerAttackTrace_Implementation() // 공격판정 �
 		if (AChest* Chest = Cast<AChest>(HitResult.GetActor()))
 		{
 			UGameplayStatics::ApplyDamage(Chest, 10.f, GetController(), this, nullptr);
-			UE_LOG(LogTemp, Log, TEXT("Chest Attack"));
 		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Log, TEXT("Attack miss!"));
 	}
 }
 
