@@ -110,6 +110,19 @@ protected:
     UFUNCTION(NetMulticast, Reliable)
     void MulticastPlayBreakSFX();
 
+    // === [추가] 스폰 보정 유틸 ==
+    UFUNCTION()
+    void SnapToGround();
+
+    UFUNCTION()
+    void EnableCollisionDeferred();
+
+    UPROPERTY(EditAnywhere, Category="Spawn")
+    float GroundSnapOffset = 20.f;   // 지면에서 살짝 띄우는 값
+
+    UPROPERTY(EditAnywhere, Category="Spawn")
+    float GroundTraceDown = 2000.f; // 아래로 트레이스 길이
+
 public:
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };

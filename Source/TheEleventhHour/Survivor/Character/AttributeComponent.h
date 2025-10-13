@@ -56,9 +56,11 @@ public:
 	UFUNCTION(BlueprintCallable) void ApplyHeal(float Amount);
 
 	// 버프 타이머용
+private:
 	FTimerHandle TimerHandle_SpeedBuff;
 
 	// 속도 버프 헬퍼
+public:
 	UFUNCTION(BlueprintCallable, Category="Attribute|Speed")
 	void ApplySpeedBuff(float AddSpeed, float Duration);
 // -----------Item end--------------	
