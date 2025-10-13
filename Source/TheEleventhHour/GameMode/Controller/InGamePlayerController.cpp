@@ -4,6 +4,9 @@
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameMode/GameInstance/EHGameInstance.h"
+#include "UI/Widgets/InGameHUD/Core/InGameHUDWidget.h"
+#include "UI/Widgets/ResultScreen/ResultScreenWidget.h"
 
 AInGamePlayerController::AInGamePlayerController()
 {
@@ -21,6 +24,16 @@ void AInGamePlayerController::BeginPlay()
 	{
 		// ✅ 클라이언트가 맵 로딩 완료 시 서버에 알림
 		ServerNotifyClientLoaded();
+
+		// ✅ 로컬 컨트롤러일 경우, 블루프린트에서 지정한 HUD 위젯을 생성하고 화면에 표시
+		if (InGameHUDWidgetClass)
+		{
+			InGameHUDInstance = CreateWidget<UInGameHUDWidget>(this, InGameHUDWidgetClass);
+			if (InGameHUDInstance)
+			{
+				InGameHUDInstance->AddToViewport();
+			}
+		}
 
 		// ✅ 일정 주기로 HUD 업데이트 (GameState 값 반영)
 		GetWorld()->GetTimerManager().SetTimer(
@@ -70,21 +83,40 @@ void AInGamePlayerController::SyncHUD()
 
 void AInGamePlayerController::ClientUpdateHUDState_Implementation(int32 RemainingTime, int32 GeneratorsRepaired, bool bExitOpened)
 {
-	// ✅ HUD 갱신: 여기서는 예시로 로그 출력, 이후 UUserWidget 연결
-	FString TimeStr = FString::Printf(TEXT("⏰ %02d:%02d"), RemainingTime / 60, RemainingTime % 60);
-	FString GenStr = FString::Printf(TEXT("⚙️ %d / 5 Generators"), GeneratorsRepaired);
-	FString ExitStr = bExitOpened ? TEXT("🚪 Exit Gate OPEN") : TEXT("🔒 Exit Gate Locked");
+	UE_LOG(LogTemp, Error, TEXT("[ClientUpdateHUDState] : RemainingTime %d GeneratorsRepaired %d bExitOpened %d"), RemainingTime, GeneratorsRepaired, bExitOpened);
 
-	UE_LOG(LogTemp, Log, TEXT("[HUD] %s | %s | %s"), *TimeStr, *GenStr, *ExitStr);
-
-	// 👉 나중에 HUD Widget을 연결하면 여기서 Widget에 값 전달 가능
-	// ex) if (UInGameHUDWidget* HUD = GetHUDWidget()) HUD->UpdateInfo(RemainingTime, GeneratorsRepaired, bExitOpened);
+	if (InGameHUDInstance)
+	{
+		InGameHUDInstance->UpdateHUD(RemainingTime, GeneratorsRepaired, bExitOpened);
+	}
 }
 
 void AInGamePlayerController::ClientOnGameEnded_Implementation(const FString& EndReason)
 {
 	UE_LOG(LogTemp, Warning, TEXT("[InGamePC] Game Ended: %s"), *EndReason);
 
-	// ✅ UI를 통해 GameOver 화면 표시 예정
-	// ex) ShowGameOverWidget(EndReason);
+	// 기존 인게임 HUD를 화면에서 제거
+	if (InGameHUDInstance)
+	{
+		InGameHUDInstance->RemoveFromParent();
+		InGameHUDInstance = nullptr;
+	}
+
+	// 결과 화면 위젯을 생성 -> 화면에 표시
+	if (ResultScreenWidgetClass)
+	{
+		UResultScreenWidget* ResultWidget = CreateWidget<UResultScreenWidget>(this, ResultScreenWidgetClass);
+		if (ResultWidget)
+		{
+			// 서버가 보내준 게임 종료 사유(EndReason)를 위젯의 텍스트로 설정.
+			ResultWidget->SetResultText(EndReason);
+			ResultWidget->AddToViewport();
+
+			// 결과 화면에서는 마우스가 보이고 UI만 조작할 수 있도록 입력 모드를 변경.
+			FInputModeUIOnly InputMode;
+			InputMode.SetWidgetToFocus(ResultWidget->TakeWidget());
+			SetInputMode(InputMode);
+			SetShowMouseCursor(true);
+		}
+	}
 }

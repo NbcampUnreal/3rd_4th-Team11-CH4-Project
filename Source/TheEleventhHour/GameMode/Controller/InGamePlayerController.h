@@ -6,6 +6,8 @@
 
 class AInGameGameState;
 class AInGamePlayerState;
+class UInGameHUDWidget;
+class UResultScreenWidget;
 
 /**
  * 인게임 플레이어 컨트롤러
@@ -51,4 +53,14 @@ protected:
 
 	UPROPERTY()
 	AInGamePlayerState* CachedPlayerState;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UInGameHUDWidget> InGameHUDWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UInGameHUDWidget> InGameHUDInstance;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UResultScreenWidget> ResultScreenWidgetClass;
+
 };

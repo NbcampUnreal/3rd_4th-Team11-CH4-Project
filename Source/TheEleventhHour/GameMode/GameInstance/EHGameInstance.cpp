@@ -1,11 +1,22 @@
 #include "GameMode/GameInstance/EHGameInstance.h"
+#include "PlayerSaveGame.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSessionSettings.h"
 #include "Kismet/GameplayStatics.h"
+#include "Blueprint/UserWidget.h"
+
+UEHGameInstance::UEHGameInstance()
+{
+	CurrentSettings = nullptr;
+	OptionsMenuInstance = nullptr;
+}
 
 void UEHGameInstance::Init()
 {
 	Super::Init();
+	
+	// 게임 시작 시 설정 불러오기
+	LoadGameSettings();
 
 	if (IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get())
 	{
@@ -162,3 +173,112 @@ void UEHGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCom
 	}
 }
 
+<<<<<<< Updated upstream
+=======
+void UEHGameInstance::SaveGameSettings()
+{
+	if (CurrentSettings)
+	{
+		UGameplayStatics::SaveGameToSlot(CurrentSettings, CurrentSettings->SaveSlotName, CurrentSettings->UserIndex);
+	}
+}
+
+void UEHGameInstance::LoadGameSettings()
+{
+	UPlayerSaveGame* LoadedSettings = nullptr;
+	const FString SlotName = TEXT("GameSettings");
+	const int32 UserIndex = 0;
+
+	if (UGameplayStatics::DoesSaveGameExist(SlotName, UserIndex))
+	{
+		LoadedSettings = Cast<UPlayerSaveGame>(UGameplayStatics::LoadGameFromSlot(SlotName, UserIndex));
+	}
+
+	if (LoadedSettings == nullptr)
+	{
+		CurrentSettings = Cast<UPlayerSaveGame>(UGameplayStatics::CreateSaveGameObject(UPlayerSaveGame::StaticClass()));
+	//	SaveGameSettings();
+	}
+	else
+	{
+		CurrentSettings = LoadedSettings;
+	}
+
+	if (CurrentSettings)
+	{
+		SetMasterVolume(FMath::RoundToInt(CurrentSettings->MasterVolume * 100.0f));
+		SetGamma(FMath::RoundToInt((CurrentSettings->Gamma - 1.8f) / 0.008f));
+		SetMouseSensitivity(FMath::RoundToInt(CurrentSettings->MouseSensitivity * 100.0f));
+	}
+}
+
+void UEHGameInstance::SetMasterVolume(int32 InVolume)
+{
+	if (CurrentSettings)
+	{
+		CurrentSettings->MasterVolume = FMath::Clamp(InVolume / 100.0f, 0.0f, 1.0f);
+		FString Command = FString::Printf(TEXT("Audio.MasterVolume %f"), CurrentSettings->MasterVolume);
+		if (GetWorld()) GetWorld()->Exec(GetWorld(), *Command);
+	}
+}
+
+void UEHGameInstance::SetGamma(int32 InGamma)
+{
+	if (CurrentSettings)
+	{
+		CurrentSettings->Gamma = FMath::Clamp(1.8f + (InGamma * 0.008f), 1.8f, 2.6f);
+		FString Command = FString::Printf(TEXT("r.Gamma %f"), CurrentSettings->Gamma);
+		if (GetWorld()) GetWorld()->Exec(GetWorld(), *Command);
+	}
+}
+
+void UEHGameInstance::SetMouseSensitivity(int32 InSensitivity)
+{
+	if (CurrentSettings)
+	{
+		CurrentSettings->MouseSensitivity = FMath::Clamp(InSensitivity / 100.0f, 0.0f, 1.0f);
+	}
+}
+
+int32 UEHGameInstance::GetMasterVolume() const
+{
+	return CurrentSettings ? FMath::RoundToInt(CurrentSettings->MasterVolume * 100.0f) : 100;
+}
+
+int32 UEHGameInstance::GetGamma() const
+{
+	return CurrentSettings ? FMath::RoundToInt((CurrentSettings->Gamma - 1.8f) / 0.008f) : 50;
+}
+
+int32 UEHGameInstance::GetMouseSensitivity() const
+{
+	return CurrentSettings ? FMath::RoundToInt(CurrentSettings->MouseSensitivity * 100.0f) : 50;
+}
+
+void UEHGameInstance::ShowOptionsMenu()
+{
+	if (!OptionsMenuWidgetClass) { UE_LOG(LogTemp, Error, TEXT("OptionsMenuWidgetClass is not set in EHGameInstance!")); return; }
+	
+	if (OptionsMenuInstance && OptionsMenuInstance->IsInViewport()) { return; }
+
+	APlayerController* PC = GetFirstLocalPlayerController();
+	if (PC)
+	{
+		OptionsMenuInstance = CreateWidget<UUserWidget>(PC, OptionsMenuWidgetClass);
+		if (OptionsMenuInstance)
+		{
+			OptionsMenuInstance->AddToViewport(1); 
+		}
+	}
+}
+
+void UEHGameInstance::HideOptionsMenu()
+{
+	if (!OptionsMenuInstance || !OptionsMenuInstance->IsInViewport()) { return; }
+
+	SaveGameSettings();
+
+	OptionsMenuInstance->RemoveFromParent();
+	OptionsMenuInstance = nullptr;
+}
+>>>>>>> Stashed changes

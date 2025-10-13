@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/GameInstance.h"
 #include "GameFramework/PlayerState.h"
 #include "InGamePlayerState.generated.h"
 
