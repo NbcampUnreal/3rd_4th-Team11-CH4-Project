@@ -65,10 +65,10 @@ bool AItemSpawnVolume::GetRandomPointInVolume(FVector& OutLoc) const
 void AItemSpawnVolume::TrySpawnOne()
 {
     if (!HasAuthority() || !ChestClass) return;
-    if (bChestRespawnCooling) return;
+    
+    if (AliveChest.IsValid()) return;
 
-    const int32 Alive = CountAliveChests();
-    if (Alive >= MaxAlive) return;
+    if (CountAliveChests() >= MaxAlive) return;
 
     FVector SpawnLoc;
     if (!GetRandomPointInVolume(SpawnLoc)) return;
@@ -92,6 +92,7 @@ void AItemSpawnVolume::TrySpawnOne()
     AChest* Spawned = GetWorld()->SpawnActor<AChest>(ChestClass, SpawnLoc, FRotator::ZeroRotator, Params);
     if (Spawned)
     {
+        AliveChest = Spawned;
         Spawned->OnDestroyed.AddDynamic(this, &AItemSpawnVolume::OnChestDestroyed);
     }
 }
@@ -138,7 +139,10 @@ FVector AItemSpawnVolume::GetSpawnLocation() const
 
 void AItemSpawnVolume::OnChestDestroyed(AActor* DestroyedActor)
 {
-    // 이미 쿨다운 중이면 무시
+    if (AliveChest.IsValid() && DestroyedActor == AliveChest.Get())
+    {
+        AliveChest = nullptr;
+    }
     if (bChestRespawnCooling) return;
 
     bChestRespawnCooling = true;

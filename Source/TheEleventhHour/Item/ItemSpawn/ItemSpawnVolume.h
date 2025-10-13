@@ -68,6 +68,10 @@ protected:
 	bool bChestRespawnCooling = false;
 	FTimerHandle ChestRespawnCooldownHandle;
 
+	UPROPERTY(VisibleInstanceOnly, Category="Spawn")
+	TWeakObjectPtr<class AChest> AliveChest;
+
+
 	// 체스트 파괴 시 콜백 (AActor::OnDestroyed)
 	UFUNCTION()
 	void OnChestDestroyed(AActor* DestroyedActor);
