@@ -55,6 +55,12 @@ void AMurdererCharacter::Tick(float DeltaSeconds)
 			666, 1.0f, FColor::Green,
 			FString::Printf(TEXT("SprintGauge: %f"), SprintGauge)
 		);
+
+		GEngine->AddOnScreenDebugMessage(
+			667,1.0f,FColor::Green,FString::Printf(TEXT("RemainSkill1CoolDown : %f"),RemainSkill1Cooldown));
+
+		GEngine->AddOnScreenDebugMessage(
+			668,1.0f,FColor::Green,FString::Printf(TEXT("RemainAttackCoolDown : %f"),RemainAttackCooldown));
 	}
 }
 
@@ -76,8 +82,29 @@ void AMurdererCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProper
 
 	DOREPLIFETIME(ThisClass,bIsSprint);
 	DOREPLIFETIME(ThisClass,SprintGauge);
-	DOREPLIFETIME(ThisClass,bCanSkill1Use);
+	DOREPLIFETIME_CONDITION_NOTIFY(ThisClass,bCanSkill1Use,COND_OwnerOnly,REPNOTIFY_OnChanged)
 }
+
+void AMurdererCharacter::Server_PlayFootstepSound_Implementation()
+{
+	Multicast_PlayFootstepSound();
+}
+
+void AMurdererCharacter::Multicast_PlayFootstepSound_Implementation()
+{
+	if (HasAuthority() || !FootStepSound) return;
+
+	FVector CurrentCharacterLoc=GetActorLocation();
+
+	UGameplayStatics::PlaySoundAtLocation(
+		this,
+		FootStepSound,
+		CurrentCharacterLoc,
+		1.f,
+		1.f,
+		0.f);
+}
+
 
 // Called to bind functionality to input
 void AMurdererCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -128,6 +155,7 @@ void AMurdererCharacter::OnRep_bCanSkill1Use()
 		{
 			if (OutlineManager)
 			{
+				RemainSkill1Cooldown=Skill1CooldownDuration;
 				OutlineManager->SetSurvivorOverlayTransparent();
 
 				GetWorldTimerManager().SetTimer(
@@ -139,7 +167,28 @@ void AMurdererCharacter::OnRep_bCanSkill1Use()
 					},
 					Skill1Duration,
 					false);
+
+				//스킬 쿨다운 설정
+				GetWorldTimerManager().SetTimer(
+					Skill1RemainCoolDownHandle,
+					[this]()
+					{
+						RemainSkill1Cooldown=FMath::Clamp(RemainSkill1Cooldown-0.1f,0.f,Skill1CooldownDuration);
+						if (RemainSkill1Cooldown<=KINDA_SMALL_NUMBER)
+						{
+							RemainSkill1Cooldown=0.0f;
+							GetWorldTimerManager().ClearTimer(Skill1RemainCoolDownHandle);
+						}
+					},
+					0.1f,
+					true,
+					0.1f);
 			}
+		}
+		else if (bCanSkill1Use==true)
+		{
+			GetWorldTimerManager().ClearTimer(Skill1RemainCoolDownHandle);
+			RemainSkill1Cooldown=0.0f;
 		}
 	}
 }
@@ -230,6 +279,8 @@ void AMurdererCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	GetWorldTimerManager().ClearTimer(SprintEndTimerHandle);
 	GetWorldTimerManager().ClearTimer(Skill1CollDownTimerHandle);
 	GetWorldTimerManager().ClearTimer(Skill1DurationTimerHandle);
+	GetWorldTimerManager().ClearTimer(Skill1RemainCoolDownHandle);
+	GetWorldTimerManager().ClearTimer(AttackCooldownHandle);
 }
 
 void AMurdererCharacter::Attack_Implementation(const FInputActionValue& ActionValue)
@@ -253,7 +304,6 @@ void AMurdererCharacter::Attack_Implementation(const FInputActionValue& ActionVa
 
 void AMurdererCharacter::NetMulticast_PlayAttackAnimMontage_Implementation()
 {
-
 		UE_LOG(LogTemp,Log,TEXT("공격 몽타주 재생 시도"));
 		if (AttackMontage && GetMesh()->GetAnimInstance())
 		{
@@ -272,6 +322,20 @@ void AMurdererCharacter::NetMulticast_PlayAttackAnimMontage_Implementation()
 				Anim->Montage_Play(AttackMontage);
 			}
 		}
+		RemainAttackCooldown=5.0f;
+		GetWorldTimerManager().SetTimer(
+			AttackCooldownHandle,
+			[this]()
+			{
+				RemainAttackCooldown=FMath::Clamp(RemainAttackCooldown-0.1f,0,5.0f);
+				if (RemainAttackCooldown<=KINDA_SMALL_NUMBER)
+				{
+					GetWorldTimerManager().ClearTimer(AttackCooldownHandle);
+				}
+			},
+			0.1f,
+			true,
+			0.1f);
 }
 void AMurdererCharacter::BeginMeleeSwingWindow()
 {
@@ -347,5 +411,3 @@ void AMurdererCharacter::PerformMeleeHit()
 	}
 	UE_LOG(LogTemp,Log,TEXT(__FUNCTION__));
 }
-
-
