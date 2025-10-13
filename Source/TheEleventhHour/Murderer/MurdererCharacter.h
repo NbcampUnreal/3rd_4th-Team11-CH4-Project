@@ -24,6 +24,10 @@ public:
 	AMurdererCharacter();
 
 	virtual void Tick(float DeltaSeconds) override;
+
+	UFUNCTION(Server,Unreliable)
+	void Server_PlayFootstepSound();
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -38,10 +42,16 @@ protected:
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category = "DefaultComponent")
 	TObjectPtr<USpringArmComponent> PivotForMesh1P;
-
+	
 	// 아웃라인 매니저 캐싱
 	UPROPERTY()
 	TObjectPtr<class ASurvivorOutlineManager> OutlineManager;
+
+	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="FootStepSound")
+	TObjectPtr<USoundBase> FootStepSound;
+	
+	UFUNCTION(NetMulticast,Unreliable)
+	void Multicast_PlayFootstepSound();
 	
 	// 인풋 액션
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="InputAction")
@@ -83,6 +93,10 @@ protected:
 	float BaseSpeed;
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Variables")
 	float SprintSpeed;
+	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Variables")
+	float RemainAttackCooldown=0.0f;
+	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Variables")
+	float RemainSkill1Cooldown=0.0f;
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category="Variables")
 	float Skill1CooldownDuration=30.0f;
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly, Category="Variables")
@@ -98,7 +112,9 @@ protected:
 	FTimerHandle SprintEndTimerHandle;
 	FTimerHandle Skill1CollDownTimerHandle;
 	FTimerHandle Skill1DurationTimerHandle;
+	FTimerHandle Skill1RemainCoolDownHandle;
 	FTimerHandle AttackTimerHandle;
+	FTimerHandle AttackCooldownHandle;
 	
 	const float MaxSprintGauge=100; //100
 	UPROPERTY(Replicated, VisibleAnywhere,BlueprintReadOnly,Category="Variables")

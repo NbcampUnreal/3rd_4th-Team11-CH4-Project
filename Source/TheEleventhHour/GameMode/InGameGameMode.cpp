@@ -16,7 +16,7 @@
 #include "Kismet/GameplayStatics.h"
 
 AInGameGameMode::AInGameGameMode()
-	: PrisonManager(nullptr), GeneratorCount(1)
+	: PrisonManager(nullptr), GeneratorCount(5)
 {
 	bUseSeamlessTravel = true;
 

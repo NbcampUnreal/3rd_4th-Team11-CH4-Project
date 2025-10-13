@@ -6,6 +6,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "Net/UnrealNetwork.h"
+#include "Survivor/Character/EHSurvivorCharacter.h"
 
 AMultiKeypad::AMultiKeypad()
 {
@@ -32,6 +33,8 @@ AMultiKeypad::AMultiKeypad()
 
 	//Replicate 활성화
 	bReplicates = true;
+
+	bAlwaysRelevant = true;
 }
 
 void AMultiKeypad::BeginPlay()
@@ -111,6 +114,7 @@ void AMultiKeypad::ProgressKeypad()
 
 void AMultiKeypad::CompleteProgress()
 {
+	InteractSurvivor->ServerRPCCancelInteract();
 	UGameplayStatics::PlaySoundAtLocation(this,CompleteSound,GetActorLocation());
 	GetWorldTimerManager().ClearTimer(ProgressTimerHandle);
 	bIsCompleted = true;

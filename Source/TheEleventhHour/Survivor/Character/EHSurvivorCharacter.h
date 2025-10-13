@@ -12,6 +12,8 @@ class UInputMappingContext;
 class UInputAction;
 class APrisonManager;
 
+class UInteractProgressWidget;
+
 struct FInputActionValue;
 
 UCLASS()
@@ -78,9 +80,14 @@ protected:
 	void MulticastStopInteractMontage();
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastDoorInteractMontage();
+
+public:
+	UFUNCTION(Server,reliable)
+	void ServerRPCCancelInteract();
 #pragma endregion
 
 #pragma region Sound
+protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	USoundBase* FootstepSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -170,11 +177,25 @@ protected:
 	UFUNCTION(Server,reliable)
 	void ServerRPCStartInteract();
 	UFUNCTION(Server,reliable)
-	void ServerRPCCancelInteract();
-	UFUNCTION(Server,reliable)
 	void ServerRPCInteract();
-	UPROPERTY(BlueprintReadOnly, Replicated)
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_SetInteractUI)
 	AActor* InteractActor;
+	// -----------------------------
+
+	// -------상호작용(UI)--------
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UUserWidget> InteractProgressClass;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
+	UInteractProgressWidget* InteractProgressWidget;
+	
+	UFUNCTION()
+	void OnRep_SetInteractUI();
+
+	UFUNCTION()
+	void UpdateProgressUI();
+	
+	FTimerHandle InteractUIUpdateTimerHandle;
 	// -----------------------------
 
 	// --------플레이어 스탯 연동--------

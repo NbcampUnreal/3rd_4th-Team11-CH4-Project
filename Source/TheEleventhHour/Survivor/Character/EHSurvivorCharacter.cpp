@@ -11,6 +11,7 @@
 #include "gimmick/Keypad/MultiKeypad.h"
 #include "DrawDebugHelpers.h"
 #include "EngineUtils.h"
+#include "Blueprint/UserWidget.h"
 #include "Item/Chest/Chest.h"
 #include "GameFramework/DamageType.h"
 #include "Engine/DamageEvents.h"
@@ -18,6 +19,7 @@
 #include "GameMode/PlayerState/InGamePlayerState.h"
 #include "GameMode/Prison/PrisonManager.h"
 #include "Item/Inventory/InventoryComponent.h"
+#include "UI/Widgets/InGameHUD/Status/InteractProgressWidget.h"
 #include "Net/UnrealNetwork.h"
 
 AEHSurvivorCharacter::AEHSurvivorCharacter()
@@ -111,6 +113,12 @@ void AEHSurvivorCharacter::BeginPlay()
 	if (AInGamePlayerState* PS = GetPlayerState<AInGamePlayerState>())
 	{
 		HandleStateChange(PS->SurvivorState);
+	}
+
+	//상호작용 UI 위젯 생성
+	if (IsLocallyControlled() && InteractProgressClass)
+	{
+		InteractProgressWidget = Cast<UInteractProgressWidget>(CreateWidget<UUserWidget>(GetWorld(), InteractProgressClass));
 	}
 }
 
@@ -559,6 +567,38 @@ void AEHSurvivorCharacter::ServerRPCInteract_Implementation()
 {
 	StartInteraction();
 }
+
+void AEHSurvivorCharacter::OnRep_SetInteractUI()
+{
+	if (InteractActor && InteractProgressWidget)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("InteractUI AddToViewport!"));
+		InteractProgressWidget->AddToViewport();
+		GetWorldTimerManager().SetTimer(InteractUIUpdateTimerHandle,this,&AEHSurvivorCharacter::UpdateProgressUI,0.2f,true);
+	}
+	if (!InteractActor && InteractProgressWidget)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("InteractUI Remove!"));
+		InteractProgressWidget->RemoveFromParent();
+		GetWorldTimerManager().ClearTimer(InteractUIUpdateTimerHandle);
+	}
+}
+
+void AEHSurvivorCharacter::UpdateProgressUI()
+{
+
+	if (AGenerators* NowActor = Cast<AGenerators>(InteractActor))
+	{
+		float Progress = NowActor->GetRepairProgress() * 0.01f;
+		InteractProgressWidget->SetProgress(Progress);
+	}
+	if (AMultiKeypad* NowActor = Cast<AMultiKeypad>(InteractActor))
+	{
+		float Progress = NowActor->GetKeypadProgress() * 0.01f;
+		InteractProgressWidget->SetProgress(Progress);
+	}
+}
+
 //======================================================================
 
 //============================== 상태변환 ==============================
