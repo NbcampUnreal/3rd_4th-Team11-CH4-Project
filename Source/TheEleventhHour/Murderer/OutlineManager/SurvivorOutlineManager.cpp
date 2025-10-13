@@ -13,8 +13,6 @@ ASurvivorOutlineManager::ASurvivorOutlineManager()
 	PrimaryActorTick.bCanEverTick=false;
 }
 
-FTimerHandle SpawnTimerHandle;
-
 void ASurvivorOutlineManager::BeginPlay()
 {
 	Super::BeginPlay();
@@ -24,7 +22,6 @@ void ASurvivorOutlineManager::BeginPlay()
 		UE_LOG(LogTemp,Log,TEXT("SERVER SIDE"));
 		return;
 	}
-		
 	
 	if (Cast<AMurdererCharacter>(GEngine->GetFirstLocalPlayerController(GetWorld())->GetPawn()))
 	{
@@ -41,6 +38,27 @@ void ASurvivorOutlineManager::BeginPlay()
 	
 }
 
+void ASurvivorOutlineManager::AfterPossess()
+{
+	if (HasAuthority())
+	{
+		UE_LOG(LogTemp,Log,TEXT("SERVER SIDE"));
+		return;
+	}
+	
+	if (Cast<AMurdererCharacter>(GEngine->GetFirstLocalPlayerController(GetWorld())->GetPawn()))
+	{
+		bIsKiller=true;
+		
+		for (TActorIterator<AEHSurvivorCharacter> It(GetWorld()); It; ++It)
+		{
+			SurvivorCharacters.Add(*It);
+			It->GetMesh()->SetOverlayMaterial(DefaultOutlineMaterial);
+			It->OnDestroyed.AddUniqueDynamic(this,&ThisClass::OnActorDestroyed);
+		}
+		OnActorSpawnedHandle = GetWorld()->AddOnActorSpawnedHandler(FOnActorSpawned::FDelegate::CreateUObject(this,&ThisClass::OnActorSpawned));
+	}
+}
 void ASurvivorOutlineManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);

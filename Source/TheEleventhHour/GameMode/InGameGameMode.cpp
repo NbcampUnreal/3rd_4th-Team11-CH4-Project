@@ -14,6 +14,8 @@
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
+#include "Murderer/MurdererCharacter.h"
+#include "Murderer/OutlineManager/SurvivorOutlineManager.h"
 
 AInGameGameMode::AInGameGameMode()
 	: PrisonManager(nullptr), GeneratorCount(5)
