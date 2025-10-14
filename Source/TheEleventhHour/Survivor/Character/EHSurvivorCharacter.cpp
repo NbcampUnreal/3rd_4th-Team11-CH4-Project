@@ -288,7 +288,7 @@ void AEHSurvivorCharacter::TryRescue()
 		const float Distance = FVector::Dist(GetActorLocation(), Prison->GetActorLocation());
 		if (Distance <= 400.f)
 		{
-			Prison->StartRescue(this);
+			//Prison->StartRescue(this);
 			UE_LOG(LogTemp, Warning, TEXT("[Survivor] %s started rescue."), *GetName());
 			return;
 		}
