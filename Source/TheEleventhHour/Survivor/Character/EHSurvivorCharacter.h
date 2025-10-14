@@ -66,6 +66,12 @@ protected:
 
 	UFUNCTION()
 	void OnDeathMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	UFUNCTION()
+	void DeleteHitMark();
+	UPROPERTY()
+	FTimerHandle DeleteHitMarkHandle;
+	
 #pragma endregion
 
 #pragma region interaction
