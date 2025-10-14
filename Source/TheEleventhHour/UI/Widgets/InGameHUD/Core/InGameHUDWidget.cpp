@@ -32,14 +32,41 @@ void UInGameHUDWidget::UpdateHUD(int32 RemainingTime, int32 GeneratorsRepaired, 
 	// --- 매치 상태(발전기, 출구) 업데이트 ---
 	if (MatchStatus)
 	{
-	//	MatchStatus->UpdateGeneratorCount(GeneratorsRepaired);
-	//	MatchStatus->UpdateExitGateStatus(bExitOpened);
+		// GameState에 발전기 최대 개수 변수(예: MaxGenerators)가 있다고 가정 (보통 5)
+		if (CurrentGameState && GeneratorsRepaired >= 5)
+		{
+			// 발전기 수리가 완료되면 탈출구 상태를 표시
+			MatchStatus->ShowExitGateStatus(bExitOpened);
+		}
+		else
+		{
+			// 아직 수리 중이면 발전기 개수를 표시
+			MatchStatus->UpdateGeneratorCount(GeneratorsRepaired);
+		}
 	}
 
-	// --- 팀 상태 업데이트 ---
+	// --- 팀 상태 업데이트(플레이어 아이콘) ---
 	if (TeamStatus)
 	{
-	//	TeamStatus->UpdateTeammates(TeammateInfos);
+		// 1. 이 함수 안에서 현재 GameState를 다시 한번 직접 가져옵니다.
+		if (AInGameGameState* GS = GetWorld()->GetGameState<AInGameGameState>())
+		{
+			// 2. GameState의 PlayerArray(모든 플레이어 목록)를 가져옵니다.
+			TArray<APlayerState*> PlayerArray = GS->PlayerArray;
+
+			// 3. PlayerState 배열을 InGamePlayerState 배열로 안전하게 변환합니다.
+			TArray<AInGamePlayerState*> InGamePlayerStates;
+			for (APlayerState* PS : PlayerArray)
+			{
+				if (AInGamePlayerState* InGamePS = Cast<AInGamePlayerState>(PS))
+				{
+					InGamePlayerStates.Add(InGamePS);
+				}
+			}
+
+			// 4. TeamStatus 위젯으로 이 최종 목록을 전달합니다.
+			TeamStatus->UpdateTeammates(InGamePlayerStates);
+		}
 	}
 
 	// --- 아이템 및 스킬 위젯 업데이트 ---

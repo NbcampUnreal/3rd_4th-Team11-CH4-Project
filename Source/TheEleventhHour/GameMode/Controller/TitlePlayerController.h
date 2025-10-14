@@ -11,6 +11,7 @@ class UMediaSource;
 class UMediaTexture;
 class UMaterialInstanceDynamic;
 class UMainMenuWidget;
+class ULoadingScreenWidget;
 
 UCLASS()
 class THEELEVENTHHOUR_API ATitlePlayerController : public APlayerController
@@ -52,7 +53,7 @@ public:
 	UFUNCTION()
 	void OnIntroEnd();
 
-	// 플레이 버튼 누른 뒤 줌인 영상 종료 → 다음 맵 이동
+	// 플레이 버튼 누른 뒤 줌인 영상 종료 → 로딩창 출력
 	UFUNCTION()
 	void OnZoomInEnd();
 
@@ -108,4 +109,5 @@ protected:
 
 	// UI에 포커스를 맞추고 입력 모드를 설정하는 헬퍼 함수
 	void SetupUIInputMode(UUserWidget* FocusWidget);
+
 };

@@ -1,5 +1,6 @@
 #include "GameMode/Controller/TitlePlayerController.h"
 #include "UI/Widgets/MainMenu/MainMenuWidget.h"
+#include "UI/Widgets/Loading/LoadingScreenWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
 #include "MediaPlayer.h"
@@ -120,6 +121,8 @@ void ATitlePlayerController::SetupUIInputMode(UUserWidget* FocusWidget)
 #pragma region Unchanged Functions
 void ATitlePlayerController::HandlePlaySelected()
 {
+    UE_LOG(LogTemp, Error, TEXT("--- 1. HandlePlaySelected CALLED ---"));
+
     if (UEHGameInstance* GI = Cast<UEHGameInstance>(GetGameInstance()))
     {
         const FString TargetIP = GI->GetIPAddress();
@@ -153,7 +156,6 @@ void ATitlePlayerController::HandlePlaySelected()
             { 
                 OnZoomInEnd(); 
             }
-
         }
     }
 
@@ -229,26 +231,24 @@ void ATitlePlayerController::OnIntroEnd()
 
 void ATitlePlayerController::OnZoomInEnd()
 {
+    UE_LOG(LogTemp, Error, TEXT("--- 2. OnZoomInEnd CALLED ---"));
+
     if (ZoomInVideoInstance) 
     { 
         ZoomInVideoInstance->RemoveFromParent(); 
         ZoomInVideoInstance = nullptr; 
-    
     }
-    
+
     if (UEHGameInstance* GI = Cast<UEHGameInstance>(GetGameInstance()))
     {
-        const FString TargetIP = GI->SavedIPAddress; 
-
-        // IP 주소가 비어있지 않은지 한번 더 확인하고 접속을 시도
+        const FString TargetIP = GI->SavedIPAddress;
         if (!TargetIP.IsEmpty())
         {
-            UE_LOG(LogTemp, Log, TEXT("OnZoomInEnd: Connecting to saved IP: %s"), *TargetIP);
             GI->ConnectToIP(TargetIP);
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("OnZoomInEnd: Target IP is empty. Cannot connect."));
+            GI->ConnectToIP(TEXT("127.0.0.1"));
         }
     }
 }
