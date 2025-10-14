@@ -65,6 +65,9 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 450.0f, 0.0f);
 	GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
 	AttributeComp->SetCurrentSpeed(AttributeComp->BaseSpeed);
+
+	GetMesh()->SetRenderCustomDepth(true);
+	GetMesh()->SetCustomDepthStencilValue(2);
 }
 
 void AEHSurvivorCharacter::BeginPlay()
@@ -154,6 +157,11 @@ void AEHSurvivorCharacter::PlayFootstepSound()
 //============================== 피격, 죽음 ==============================
 void AEHSurvivorCharacter::MulticastHitMontage_Implementation()
 {
+	//피격시 일정시간 속도 증가 및 맵에 표시
+	AttributeComp->ApplySpeedBuff(500, 3.f);
+	GetMesh()->SetCustomDepthStencilValue(3);
+	GetWorldTimerManager().SetTimer(DeleteHitMarkHandle,this,&AEHSurvivorCharacter::DeleteHitMark, 3.f, false);
+	
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && HitReactMontage)
 	{
@@ -197,10 +205,10 @@ float AEHSurvivorCharacter::TakeDamage(
 	const float OldHP = AttributeComp->GetHealth();
 	AttributeComp->TakeDamage(DamageAmount);
 	const float NewHP = AttributeComp->GetHealth();
-
+	
 	AInGamePlayerState* PS = GetPlayerState<AInGamePlayerState>();
 	if (!PS) return 0.f;
-
+	
 	if (NewHP <= 0.f && !bIsDead)
 	{
 		PS->ServerSetSurvivorState(ESurvivorState::Captured); // 감옥 수감 처리
@@ -263,36 +271,6 @@ void AEHSurvivorCharacter::ServerRequestCapture_Implementation()
 	}
 }
 
-// 🔹 구출 시도 (E키 등으로 트리거)
-void AEHSurvivorCharacter::TryRescue()
-{
-	if (!HasAuthority())
-	{
-		ServerTryRescue();
-		return;
-	}
-
-	for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
-	{
-		APrisonManager* Prison = *It;
-		if (!Prison) continue;
-
-		const float Distance = FVector::Dist(GetActorLocation(), Prison->GetActorLocation());
-		if (Distance <= 400.f)
-		{
-			Prison->StartRescue(this);
-			UE_LOG(LogTemp, Warning, TEXT("[Survivor] %s started rescue."), *GetName());
-			return;
-		}
-	}
-	UE_LOG(LogTemp, Warning, TEXT("[Survivor] No nearby prison to rescue!"));
-}
-
-void AEHSurvivorCharacter::ServerTryRescue_Implementation()
-{
-	TryRescue();
-}
-
 //======================================================================
 
 void AEHSurvivorCharacter::Tick(float DeltaTime)
@@ -320,16 +298,6 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
 	EIC->BindAction(InteractAction, ETriggerEvent::Completed, this, &AEHSurvivorCharacter::ServerRPCCancelInteract);
 	EIC->BindAction(JumpAction, ETriggerEvent::Started, this, &AEHSurvivorCharacter::Jump);
-	
-	// ✅ 새로 추가
-	if (RescueAction)
-	{
-		EIC->BindAction(RescueAction, ETriggerEvent::Started, this, &ThisClass::TryRescue);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Input] RescueAction not set on %s"), *GetName());
-	}
 }
 //======================================================================
 
@@ -605,6 +573,12 @@ void AEHSurvivorCharacter::UpdateSurvivorState(ESurvivorState NewState)
 		PS->ServerSetSurvivorState(NewState);
 	}
 }
+
+void AEHSurvivorCharacter::DeleteHitMark()
+{
+	GetMesh()->SetCustomDepthStencilValue(2);
+}
+
 
 //============================== 공격 ==============================
 void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value) // 공격 인풋
