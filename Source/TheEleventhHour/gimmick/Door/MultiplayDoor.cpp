@@ -2,9 +2,10 @@
 
 
 #include "MultiplayDoor.h"
-#include "Components/BoxComponent.h"
 #include "Components/TimelineComponent.h"
 #include "Curves/CurveFloat.h"
+#include "GameMode/Prison/PrisonManager.h"
+#include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 
 // Sets default values
@@ -81,6 +82,20 @@ void AMultiplayDoor::OpenDoor()
 void AMultiplayDoor::CloseDoor()
 {
    bIsOpen=false;
+
+   APrisonManager* PrisonManager = Cast<APrisonManager>(
+           UGameplayStatics::GetActorOfClass(GetWorld(), APrisonManager::StaticClass())
+       );
+
+   if (PrisonManager && PrisonManager->HasAuthority())
+   {
+      // ✅ 감옥에 아직 포획된 생존자들을 Escape로 이동
+      PrisonManager->ForceMoveCapturedToEscape();
+   }
+   else
+   {
+      UE_LOG(LogTemp, Warning, TEXT("[EscapeDoor] PrisonManager not found or not server."));
+   }
    
    if (DoorTimeLine)
    {

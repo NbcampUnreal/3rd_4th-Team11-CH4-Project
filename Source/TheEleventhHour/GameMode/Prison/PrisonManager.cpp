@@ -2,22 +2,26 @@
 #include "GameMode/InGameGameMode.h"
 #include "GameMode/PlayerState/InGamePlayerState.h"
 #include "Survivor/Character/EHSurvivorCharacter.h"
+#include "Components/BoxComponent.h"
 #include "GameFramework/PlayerStart.h"
-#include "Kismet/GameplayStatics.h"
-#include "Net/UnrealNetwork.h"
-#include "TimerManager.h"
-#include "EngineUtils.h"
-#include "Engine/World.h"
-#include "Engine/Engine.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "EngineUtils.h"
+#include "Net/UnrealNetwork.h"
 
 APrisonManager::APrisonManager()
 {
 	bReplicates = true;
 	PrimaryActorTick.bCanEverTick = false;
+
+	// 🔹 EscapeTrigger는 BP에서 설정할 수 있게 생성만
+	EscapeTrigger = CreateDefaultSubobject<UBoxComponent>(TEXT("EscapeTrigger"));
+	EscapeTrigger->SetupAttachment(RootComponent);
+	EscapeTrigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	EscapeTrigger->SetCollisionResponseToAllChannels(ECR_Ignore);
+	EscapeTrigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	EscapeTrigger->SetGenerateOverlapEvents(true);
 }
 
-/* -------------------- BeginPlay -------------------- */
 void APrisonManager::BeginPlay()
 {
 	Super::BeginPlay();
@@ -26,24 +30,15 @@ void APrisonManager::BeginPlay()
 	{
 		LinkedGameMode = GetWorld()->GetAuthGameMode<AInGameGameMode>();
 
-		// 자동 EscapeSpot 탐색
-		if (!EscapeSpot)
-		{
-			EscapeSpot = FindEscapeSpot();
-		}
+		if (EscapeTrigger)
+			EscapeTrigger->OnComponentBeginOverlap.AddDynamic(this, &ThisClass::OnEscapeOverlapBegin);
 
-		if (EscapeSpot)
-		{
-			UE_LOG(LogTemp, Log, TEXT("[PrisonManager] EscapeSpot found: %s"), *EscapeSpot->GetName());
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("[PrisonManager] ❌ No EscapeSpot found (Tag = Spawn.Escape)"));
-		}
+		if (!EscapeSpot)
+			EscapeSpot = FindEscapeSpot();
 	}
 }
 
-/* -------------------- 생존자 수감 -------------------- */
+/* -------------------- 감옥 포획 -------------------- */
 void APrisonManager::Capture(AEHSurvivorCharacter* Victim)
 {
 	if (!HasAuthority() || !Victim) return;
@@ -52,7 +47,6 @@ void APrisonManager::Capture(AEHSurvivorCharacter* Victim)
 	{
 		CapturedSurvivors.Add(Victim);
 
-		// ✅ 감옥 위치로 이동 (Spawn.Prison 우선)
 		AActor* PrisonSpot = nullptr;
 		for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
 		{
@@ -63,134 +57,103 @@ void APrisonManager::Capture(AEHSurvivorCharacter* Victim)
 			}
 		}
 
-		if (PrisonSpot)
-		{
-			FVector PrisonLoc = PrisonSpot->GetActorLocation();
-			FRotator PrisonRot = PrisonSpot->GetActorRotation();
-			Victim->TeleportTo(PrisonLoc, PrisonRot, false, true);
-			UE_LOG(LogTemp, Warning, TEXT("[Prison] %s teleported to Spawn.Prison (%s)"),
-				*Victim->GetName(), *PrisonSpot->GetName());
-		}
-		else
-		{
-			FVector PrisonLoc = GetActorLocation() + FVector(0, 0, 50.f);
-			Victim->TeleportTo(PrisonLoc, GetActorRotation(), false, true);
-			UE_LOG(LogTemp, Warning, TEXT("[Prison] No Spawn.Prison found! Used manager location instead."));
-		}
+		const FVector Loc = PrisonSpot ? PrisonSpot->GetActorLocation() : GetActorLocation();
+		const FRotator Rot = PrisonSpot ? PrisonSpot->GetActorRotation() : GetActorRotation();
+		Victim->TeleportTo(Loc, Rot, false, true);
 
-		// 상태 변경
 		if (AInGamePlayerState* PS = Victim->GetPlayerState<AInGamePlayerState>())
-		{
 			PS->ServerSetSurvivorState(ESurvivorState::Captured);
-		}
 
-		UE_LOG(LogTemp, Warning, TEXT("[Prison] %s captured and moved to prison."), *Victim->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("[PrisonManager] %s captured and teleported."), *Victim->GetName());
+	}
+}
+
+/* -------------------- 트리거 통과 시 -------------------- */
+void APrisonManager::OnEscapeOverlapBegin(
+	UPrimitiveComponent* OverlappedComp, 
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, 
+	int32 OtherBodyIndex, 
+	bool bFromSweep, 
+	const FHitResult& SweepResult)
+{
+	// 🔹 서버 전용
+	if (!HasAuthority())
+		return;
+
+	AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(OtherActor);
+	if (!Survivor)
+		return;
+
+	AInGamePlayerState* PS = Survivor->GetPlayerState<AInGamePlayerState>();
+	if (!PS)
+		return;
+
+	// 🔹 감옥에 있던 플레이어만 부상 상태로 전환
+	if (PS->SurvivorState == ESurvivorState::Captured)
+	{
+		PS->ServerSetSurvivorState(ESurvivorState::Injured);
+
+		Survivor->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+		Survivor->EnableInput(nullptr);
+
+		UE_LOG(LogTemp, Warning, TEXT("[PrisonManager] %s escaped from prison → set to INJURED."), *Survivor->GetName());
 	}
 }
 
 
-/* -------------------- 구출 시작 -------------------- */
-void APrisonManager::StartRescue_Implementation(AEHSurvivorCharacter* Rescuer)
+
+/* -------------------- 문 닫힘 시 강제 이동 -------------------- */
+void APrisonManager::ForceMoveCapturedToEscape()
 {
 	if (!HasAuthority() || CapturedSurvivors.Num() == 0)
 		return;
 
-	// 중복 방지
-	if (CurrentRescuer && CurrentRescuer != Rescuer)
+	if (!EscapeSpot)
+		EscapeSpot = FindEscapeSpot();
+
+	if (!EscapeSpot)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[Prison] Rescue already in progress by %s."), *CurrentRescuer->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("[PrisonManager] No Spawn.Escape found!"));
 		return;
 	}
 
-	CurrentRescuer = Rescuer;
-	UE_LOG(LogTemp, Warning, TEXT("[Prison] Rescue started by %s (SERVER)"), *Rescuer->GetName());
-
-	if (LinkedGameMode)
-		LinkedGameMode->NotifyRescueStarted(Rescuer);
-
-	UE_LOG(LogTemp, Warning, TEXT("[Prison] Starting rescue timer: %.2f sec"), RescueDuration);
-	GetWorldTimerManager().SetTimer(RescueTimer, this, &APrisonManager::CompleteRescue, RescueDuration, false);
-}
-
-/* -------------------- 구출 취소 -------------------- */
-void APrisonManager::CancelRescue_Implementation(AEHSurvivorCharacter* Rescuer)
-{
-	if (!HasAuthority()) return;
-	if (CurrentRescuer != Rescuer) return;
-
-	GetWorldTimerManager().ClearTimer(RescueTimer);
-	CurrentRescuer = nullptr;
-
-	UE_LOG(LogTemp, Log, TEXT("[Prison] Rescue canceled by %s"), *Rescuer->GetName());
-}
-
-/* -------------------- 구출 완료 -------------------- */
-void APrisonManager::CompleteRescue()
-{
-	if (!HasAuthority())
-		return;
-
-	UE_LOG(LogTemp, Warning, TEXT("[Prison] Rescue complete! Freeing all survivors..."));
-
-	FreeAllSurvivors();
-
-	if (LinkedGameMode)
-		LinkedGameMode->NotifyRescueCompleted();
-
-	// 리셋
-	CurrentRescuer = nullptr;
-}
-
-/* -------------------- 수감자 해방 -------------------- */
-void APrisonManager::FreeAllSurvivors()
-{
 	for (AEHSurvivorCharacter* Prisoner : CapturedSurvivors)
 	{
-		if (!IsValid(Prisoner))
-			continue;
+		if (!IsValid(Prisoner)) continue;
 
-		// 상태 Alive로 복구
 		if (AInGamePlayerState* PS = Prisoner->GetPlayerState<AInGamePlayerState>())
 		{
-			PS->ServerSetSurvivorState(ESurvivorState::Alive);
+			if (PS->SurvivorState == ESurvivorState::Captured)
+			{
+				Prisoner->TeleportTo(EscapeSpot->GetActorLocation(), EscapeSpot->GetActorRotation(), false, true);
+				PS->ServerSetSurvivorState(ESurvivorState::Injured);
+
+				Prisoner->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+				Prisoner->EnableInput(nullptr);
+
+				UE_LOG(LogTemp, Warning, TEXT("[PrisonManager] %s moved to EscapeSpawn and set to Injured."), *Prisoner->GetName());
+			}
 		}
-
-		// 이동 가능 복구
-		Prisoner->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-		Prisoner->EnableInput(nullptr);
-
-		// 탈출 위치로 이동
-		if (EscapeSpot)
-		{
-			FVector EscapeLoc = EscapeSpot->GetActorLocation();
-			FRotator EscapeRot = EscapeSpot->GetActorRotation();
-			Prisoner->TeleportTo(EscapeLoc, EscapeRot, false, true);
-		}
-
-		UE_LOG(LogTemp, Log, TEXT("[Prison] %s freed from prison."), *Prisoner->GetName());
 	}
 
 	CapturedSurvivors.Empty();
 }
 
-/* -------------------- EscapeSpot 자동 탐색 -------------------- */
+/* -------------------- EscapeSpot 찾기 -------------------- */
 AActor* APrisonManager::FindEscapeSpot()
 {
 	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
 	{
 		if (It->PlayerStartTag == FName("Spawn.Escape"))
-		{
 			return *It;
-		}
 	}
 	return nullptr;
 }
 
-/* -------------------- Network Replication -------------------- */
+/* -------------------- 네트워크 복제 -------------------- */
 void APrisonManager::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
 	DOREPLIFETIME(APrisonManager, CapturedSurvivors);
-	DOREPLIFETIME(APrisonManager, CurrentRescuer);
 }
