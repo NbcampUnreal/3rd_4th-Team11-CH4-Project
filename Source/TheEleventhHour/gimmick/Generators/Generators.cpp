@@ -141,7 +141,9 @@ void AGenerators::CompleteGenerator()
 {
 	if (HasAuthority())
 	{
-		for (AEHSurvivorCharacter* Survivor : InteractSurvivors)
+		TArray<AEHSurvivorCharacter*> SurvivorsCopy = InteractSurvivors;
+		
+		for (AEHSurvivorCharacter* Survivor : SurvivorsCopy)
 		{
 			if (IsValid(Survivor))
 			{
