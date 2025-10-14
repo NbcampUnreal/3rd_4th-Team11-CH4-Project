@@ -173,8 +173,7 @@ void UEHGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCom
 	}
 }
 
-<<<<<<< Updated upstream
-=======
+
 void UEHGameInstance::SaveGameSettings()
 {
 	if (CurrentSettings)
@@ -281,4 +280,3 @@ void UEHGameInstance::HideOptionsMenu()
 	OptionsMenuInstance->RemoveFromParent();
 	OptionsMenuInstance = nullptr;
 }
->>>>>>> Stashed changes

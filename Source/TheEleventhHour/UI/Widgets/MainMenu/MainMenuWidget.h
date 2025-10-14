@@ -16,10 +16,10 @@ class THEELEVENTHHOUR_API UMainMenuWidget : public UUserWidget
 public:
 	/** Host 버튼 클릭 시 실행 */
 	UPROPERTY(BlueprintAssignable, Category = "UI/Events")
-	FOnMenuButtonClicked OnHostClicked;
+	FOnMenuButtonClicked OnPlayClicked;
 	/** Join 버튼 클릭 시 실행 (원할 경우 구현) */
 	UPROPERTY(BlueprintAssignable, Category = "UI/Events")
-	FOnMenuButtonClicked OnJoinClicked;
+	FOnMenuButtonClicked OnInputIPClicked;
 	/** Opions 버튼 클릭 시 실행 */
 	UPROPERTY(BlueprintAssignable, Category = "UI/Events")
 	FOnMenuButtonClicked OnOptionsClicked;
@@ -38,7 +38,7 @@ private:
 
 	/** Join 버튼 (추후 세션 참가용으로 확장 가능) */
 	UPROPERTY(meta = (BindWidget))
-	UTextBlock* JoinButton;
+	UTextBlock* InputIPButton;
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* OptionsButton;

@@ -25,6 +25,14 @@ public:
 	/** 세션 검색 후 자동 참가 */
 	void FindSessionsAndJoin();
 
+	// IP 주소를 임시로 저장할 변수
+	FString SavedIPAddress;
+
+	UFUNCTION(BlueprintCallable)
+	void SetIPAddress(const FString& InIPAddress) { SavedIPAddress = InIPAddress; }
+
+	FString GetIPAddress() const { return SavedIPAddress; }
+
 protected:
 	/** 서버 전용 Dedicated 세션 호스트 */
 	void HostDedicatedSession();

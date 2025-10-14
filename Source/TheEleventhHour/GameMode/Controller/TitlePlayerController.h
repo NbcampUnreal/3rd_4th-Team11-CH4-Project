@@ -32,13 +32,21 @@ public:
 	
 	// 메뉴에서 Join 클릭 시
 	UFUNCTION(BlueprintCallable, Category = "UI/Events")
-	void HandleJoinSelected();
+	void HandleInputIPSelected();
 
 	// 메뉴에서 Options 클릭 시
 	UFUNCTION(BlueprintCallable, Category = "UI/Events")
 	void HandleOptionsSelected();
 
 	void HideOptionsMenu();
+
+	// IP INPUT 팝업창 관련 함수
+	UFUNCTION(BlueprintCallable)
+	void ShowIPInputPopup();
+	UFUNCTION(BlueprintCallable)
+	void CloseIPInputPopup();
+	UFUNCTION(BlueprintCallable)
+	void ShowMessagePopup(const FText& Message); // 메시지 팝업용
 
 	// 인트로 영상 종료 → 루프 영상으로 전환
 	UFUNCTION()
@@ -84,6 +92,12 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UUserWidget> ZoomInVideoInstance;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> IPInputPopupWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> MessagePopupWidgetClass;
 
 	// 런타임 제어 -> 배경 영상 평면의 다이내믹 머티리얼 인스턴스
 	UPROPERTY()

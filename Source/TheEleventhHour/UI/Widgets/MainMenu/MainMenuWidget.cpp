@@ -15,7 +15,7 @@ void UMainMenuWidget::InitializeMenu()
 {
 	this->bIsFocusable = true;
 
-	MenuIndex = { PlayButton, JoinButton, OptionsButton, CreditsButton, ExitButton };
+	MenuIndex = { PlayButton, InputIPButton, OptionsButton, CreditsButton, ExitButton };
 	CurrentIndex = 0;
 	bVisibleState = true;
 
@@ -88,10 +88,10 @@ void UMainMenuWidget::ConfirmSelection()
 	{
 	case 0: // Play
 		UE_LOG(LogTemp, Error, TEXT("MainMenuWidget >> TRY BROADCAST: Play (Index %d)"), CurrentIndex);
-		OnHostClicked.Broadcast();
+		OnPlayClicked.Broadcast();
 		break;
 	case 1: // Join
-		OnJoinClicked.Broadcast();
+		OnInputIPClicked.Broadcast();
 		break;
 	case 2: // Options
 		UE_LOG(LogTemp, Error, TEXT("MainMenuWidget >> TRY BROADCAST: Options (Index %d)"), CurrentIndex);
