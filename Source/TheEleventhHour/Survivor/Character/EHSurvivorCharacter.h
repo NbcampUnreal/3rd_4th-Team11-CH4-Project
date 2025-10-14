@@ -130,8 +130,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> AttackAction;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
-	TObjectPtr<UInputAction> RescueAction;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> JumpAction;
 	// --------------------
 
@@ -232,12 +230,8 @@ private:
 	/* -------------------- 🔹 추가된 감옥 시스템 관련 -------------------- */
 private:
 	void HandleStateChange(ESurvivorState NewState);  // PlayerState 변경 시 반응
-	void TryRescue();                                 // 감옥 구출 시도
 	
 	UFUNCTION(Server, Reliable)
 	void ServerRequestCapture();
-
-	UFUNCTION(Server, Reliable)
-	void ServerTryRescue();
 	/* --------------------------------------------------------------- */
 };

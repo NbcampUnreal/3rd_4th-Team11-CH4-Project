@@ -271,36 +271,6 @@ void AEHSurvivorCharacter::ServerRequestCapture_Implementation()
 	}
 }
 
-// 🔹 구출 시도 (E키 등으로 트리거)
-void AEHSurvivorCharacter::TryRescue()
-{
-	if (!HasAuthority())
-	{
-		ServerTryRescue();
-		return;
-	}
-
-	for (TActorIterator<APrisonManager> It(GetWorld()); It; ++It)
-	{
-		APrisonManager* Prison = *It;
-		if (!Prison) continue;
-
-		const float Distance = FVector::Dist(GetActorLocation(), Prison->GetActorLocation());
-		if (Distance <= 400.f)
-		{
-			Prison->StartRescue(this);
-			UE_LOG(LogTemp, Warning, TEXT("[Survivor] %s started rescue."), *GetName());
-			return;
-		}
-	}
-	UE_LOG(LogTemp, Warning, TEXT("[Survivor] No nearby prison to rescue!"));
-}
-
-void AEHSurvivorCharacter::ServerTryRescue_Implementation()
-{
-	TryRescue();
-}
-
 //======================================================================
 
 void AEHSurvivorCharacter::Tick(float DeltaTime)
@@ -328,16 +298,6 @@ void AEHSurvivorCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	EIC->BindAction(InteractAction,ETriggerEvent::Started,this,&AEHSurvivorCharacter::StartInteraction);
 	EIC->BindAction(InteractAction, ETriggerEvent::Completed, this, &AEHSurvivorCharacter::ServerRPCCancelInteract);
 	EIC->BindAction(JumpAction, ETriggerEvent::Started, this, &AEHSurvivorCharacter::Jump);
-	
-	// ✅ 새로 추가
-	if (RescueAction)
-	{
-		EIC->BindAction(RescueAction, ETriggerEvent::Started, this, &ThisClass::TryRescue);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Input] RescueAction not set on %s"), *GetName());
-	}
 }
 //======================================================================
 
