@@ -18,13 +18,17 @@
 #include "Murderer/OutlineManager/SurvivorOutlineManager.h"
 
 AInGameGameMode::AInGameGameMode()
-	: PrisonManager(nullptr), GeneratorCount(5)
+	: PrisonManager(nullptr)
 {
 	bUseSeamlessTravel = true;
 
 	GameStateClass = AInGameGameState::StaticClass();
 	PlayerStateClass = AInGamePlayerState::StaticClass();
+
+	// 나중에 BeginPlay에서 세팅할 예정
+	RemainingGeneratorCount = TotalGeneratorCount;
 }
+
 
 /* -------------------- BeginPlay -------------------- */
 void AInGameGameMode::BeginPlay()
@@ -33,6 +37,8 @@ void AInGameGameMode::BeginPlay()
 
 	if (HasAuthority())
 	{
+		RemainingGeneratorCount = TotalGeneratorCount;
+
 		if (AInGameGameState* GS = GetGameState<AInGameGameState>())
 		{
 			GS->ExpectedPlayers = GameState->PlayerArray.Num();
@@ -52,6 +58,7 @@ void AInGameGameMode::BeginPlay()
 		UE_LOG(LogTemp, Log, TEXT("[InGameGM] PrisonManager found: %s"), *PrisonManager->GetName());
 	}
 }
+
 
 /* -------------------- PostSeamlessTravel -------------------- */
 void AInGameGameMode::PostSeamlessTravel()
@@ -309,12 +316,6 @@ void AInGameGameMode::CheckVictoryConditions()
 		EndGame(TEXT("Survivors escaped successfully!"));
 		return;
 	}
-
-	// 🔹 발전기 1개 작동 완료 시
-	if (GeneratorCount <= 0)
-	{
-		EndGame(TEXT("Generator is Repaired!"));
-	}
 	
 	// 🔹 킬러 승리 조건 (모두 포획 or 사망)
 	if (AliveOrInjured == 0 && Captured > 0)
@@ -322,7 +323,6 @@ void AInGameGameMode::CheckVictoryConditions()
 		EndGame(TEXT("Killer wins! All survivors captured!"));
 	}
 }
-
 
 /* -------------------- EndGame -------------------- */
 void AInGameGameMode::EndGame(const FString& Reason)
@@ -344,27 +344,29 @@ void AInGameGameMode::CompletedRepair()
 {
 	if (!HasAuthority()) return;
 
-	GeneratorCount--;
-	UE_LOG(LogTemp, Log, TEXT("[GM] GeneratorCount decreased: %d"), GeneratorCount);
+	RemainingGeneratorCount = FMath::Clamp(RemainingGeneratorCount - 1, 0, TotalGeneratorCount);
+	UE_LOG(LogTemp, Log, TEXT("[GM] Generator repaired → Remaining: %d / %d"), 
+		   RemainingGeneratorCount, TotalGeneratorCount);
 
 	AInGameGameState* GS = GetGameState<AInGameGameState>();
 	if (GS)
 	{
-		// ✅ GameState에 정확한 수치로 설정
-		const int32 RepairedCount = 5 - FMath::Max(0, GeneratorCount);
+		// ✅ GameState에 정확한 수치로 전달
+		const int32 RepairedCount = TotalGeneratorCount - RemainingGeneratorCount;
 		GS->SetGeneratorsRepaired(RepairedCount);
 	}
 
-	if (GeneratorCount <= 0)
+	if (RemainingGeneratorCount <= 0)
 	{
 		for (TActorIterator<AMultiKeypad> It(GetWorld()); It; ++It)
 		{
 			if (AMultiKeypad* Keypad = *It)
 				Keypad->SetCanInteract(true);
 		}
-		UE_LOG(LogTemp, Log, TEXT("[GM] All generators repaired. Keypads unlocked."));
+		UE_LOG(LogTemp, Log, TEXT("[GM] ✅ All generators repaired. Keypads unlocked."));
 	}
 }
+
 
 
 /* -------------------- 감옥 이동 -------------------- */
@@ -382,4 +384,29 @@ void AInGameGameMode::SendToPrison(AInGamePlayerState* CapturedPlayer)
 	PrisonManager->Capture(Survivor);
 
 	EvaluateAllPlayerStates();
+}
+
+void AInGameGameMode::OnEscapeDoorOpened()
+{
+	if (!HasAuthority()) return;
+
+	AInGameGameState* GS = GetGameState<AInGameGameState>();
+	if (!GS) return;
+
+	// 🔹 1분 30초로 남은 시간 고정
+	GS->RemainingTime = 90; // 초 단위 (1분 30초)
+
+	// 🔹 게이트가 열렸음을 표시
+	GS->bExitGateOpened = true;
+
+	UE_LOG(LogTemp, Warning, TEXT("[InGameGM] 🚪 Escape door opened! Remaining time set to 90 seconds."));
+
+	// 🔹 클라이언트 HUD 갱신 등을 위해 브로드캐스트 할 수도 있음 (옵션)
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			-1, 3.f, FColor::Green,
+			TEXT("Escape Door Opened! 1 minute 30 seconds remaining!")
+		);
+	}
 }

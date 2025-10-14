@@ -4,6 +4,8 @@
 #include "gimmick/Door/MultiplayDoor.h"
 #include "KeypadDoor.generated.h"
 
+class AEscapeZone;
+
 UCLASS()
 class THEELEVENTHHOUR_API AKeypadDoor : public AMultiplayDoor
 {
@@ -14,4 +16,8 @@ public:
 
 	UFUNCTION()
 	void OpenKeypadDoor();
+
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Escape")
+	AEscapeZone* LinkedEscapeZone;
 };

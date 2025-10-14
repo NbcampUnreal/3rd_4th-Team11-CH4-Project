@@ -47,6 +47,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="GameRule")
 	void SendToPrison(AInGamePlayerState* CapturedPlayer);
 
+	UFUNCTION(BlueprintCallable, Category="Game|Generators")
+	void OnEscapeDoorOpened();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void PostSeamlessTravel() override;
@@ -77,7 +80,11 @@ protected:
 	float MatchTickInterval = 1.0f;
 
 	// ---- 발전기 ----
-	int32 GeneratorCount;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Game|Generators")
+	int32 TotalGeneratorCount = 5;  // 전체 발전기 수 (기본값 5)
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="Game|Generators")
+	int32 RemainingGeneratorCount = 0;  // 현재 남은 발전기 수
 
 	// ---- 진행 ----
 	void AssignRoles();
