@@ -66,6 +66,12 @@ protected:
 
 	UFUNCTION()
 	void OnDeathMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	UFUNCTION()
+	void DeleteHitMark();
+	UPROPERTY()
+	FTimerHandle DeleteHitMarkHandle;
+	
 #pragma endregion
 
 #pragma region interaction
@@ -124,7 +130,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> AttackAction;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
-	TObjectPtr<UInputAction> RescueAction;
+	TObjectPtr<UInputAction> JumpAction;
 	// --------------------
 
 	// ------ 스프링암 설정 ------
@@ -142,6 +148,7 @@ protected:
 	UFUNCTION(BlueprintCallable, Category="Interaction")
 	void StartInteraction();
 	void EndInteraction(const FInputActionValue& value);
+	void Jump() override;
 	// --------------------
 
 	// ------ 상태관리 ------
@@ -223,12 +230,8 @@ private:
 	/* -------------------- 🔹 추가된 감옥 시스템 관련 -------------------- */
 private:
 	void HandleStateChange(ESurvivorState NewState);  // PlayerState 변경 시 반응
-	void TryRescue();                                 // 감옥 구출 시도
 	
 	UFUNCTION(Server, Reliable)
 	void ServerRequestCapture();
-
-	UFUNCTION(Server, Reliable)
-	void ServerTryRescue();
 	/* --------------------------------------------------------------- */
 };
