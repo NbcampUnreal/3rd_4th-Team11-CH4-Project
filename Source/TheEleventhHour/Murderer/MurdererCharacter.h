@@ -60,6 +60,9 @@ protected:
 	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="InputAction")
 	TObjectPtr<UInputAction> LookAction;
 
+	UPROPERTY(EditAnywhere,BlueprintReadWrite, Category="InputAction")
+	TObjectPtr<UInputAction> JumpAction;
+
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="InputAction")
 	TObjectPtr<UInputAction> AttackAction;
 
@@ -82,6 +85,7 @@ protected:
 	//인풋 액션 바인딩 함수
 	void Move(const FInputActionValue& ActionValue);
 	void Look(const FInputActionValue& ActionValue);
+	virtual void Jump() override;
 	void EndPlay(EEndPlayReason::Type EndPlayReason);
 	UFUNCTION(Server,Reliable)
 	void Attack(const FInputActionValue& ActionValue);

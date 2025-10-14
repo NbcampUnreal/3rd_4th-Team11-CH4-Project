@@ -148,6 +148,8 @@ void AMurdererCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	tmp->BindAction(SprintAction,ETriggerEvent::Started,this,&ThisClass::StartSprint);
 	tmp->BindAction(SprintAction,ETriggerEvent::Completed,this,&ThisClass::EndSprint);
 	tmp->BindAction(Skill1Action,ETriggerEvent::Started,this,&ThisClass::Skill1);
+	tmp->BindAction(JumpAction,ETriggerEvent::Started,this,&ThisClass::Jump);
+
 }
 
 void AMurdererCharacter::Skill1_Implementation()
@@ -230,6 +232,11 @@ void AMurdererCharacter::Look(const FInputActionValue& ActionValue)
 
 	AddControllerYawInput(Vec.X);
 	AddControllerPitchInput(Vec.Y);
+}
+
+void AMurdererCharacter::Jump()
+{
+	Super::Jump();
 }
 
 void AMurdererCharacter::StartSprint_Implementation()
