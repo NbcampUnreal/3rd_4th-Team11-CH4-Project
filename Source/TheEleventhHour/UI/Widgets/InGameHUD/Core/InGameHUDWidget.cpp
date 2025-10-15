@@ -13,28 +13,24 @@ void UInGameHUDWidget::NativeConstruct()
 {
     Super::NativeConstruct();
 
-    // 위젯이 처음 생성될 때, GameState와 PlayerState에 대한 참조
-    // 이 객체들은 서버로부터 데이터를 복제(Replication)
-    CurrentGameState = GetWorld()->GetGameState<AInGameGameState>();
-    CurrentPlayerState = GetOwningPlayerState<AInGamePlayerState>();
+	CurrentGameState = GetWorld()->GetGameState<AInGameGameState>();
+	CurrentPlayerState = GetOwningPlayerState<AInGamePlayerState>();
+}
 
-	// 위젯이 생성될 때, 플레이어의 역할을 확인하고 위젯을 표시
-	if (CurrentPlayerState)
+void UInGameHUDWidget::SetRoleSpecificVisibility(bool bIsKiller)
+{
+	if (bIsKiller)
 	{
-		if (CurrentPlayerState->bIsKiller)
-		{
-			// 살인마라면, Item 위젯은 숨기고 Skill 위젯을 표시
-			if (Item) Item->SetVisibility(ESlateVisibility::Collapsed);
-			if (Skill) Skill->SetVisibility(ESlateVisibility::Visible);
-		}
-		else
-		{
-			// 생존자라면, Skill 위젯은 숨기고 Item 위젯을 표시
-			if (Skill) Skill->SetVisibility(ESlateVisibility::Collapsed);
-			if (Item) Item->SetVisibility(ESlateVisibility::Visible);
-		}
+		// 살인마라면, Item 위젯은 숨기고 Skill 위젯은 보여줍니다.
+		if (Item) Item->SetVisibility(ESlateVisibility::Collapsed);
+		if (Skill) Skill->SetVisibility(ESlateVisibility::Visible);
 	}
-
+	else
+	{
+		// 생존자라면, Skill 위젯은 숨기고 Item 위젯은 보여줍니다.
+		if (Skill) Skill->SetVisibility(ESlateVisibility::Collapsed);
+		if (Item) Item->SetVisibility(ESlateVisibility::Visible);
+	}
 }
 
 void UInGameHUDWidget::UpdateHUD(int32 RemainingTime, int32 GeneratorsRepaired, bool bExitOpened)

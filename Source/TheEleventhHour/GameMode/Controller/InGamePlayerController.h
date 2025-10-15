@@ -44,6 +44,9 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientUpdateSpectateUI(const FString& TargetPlayerName);
 
+	UFUNCTION(Client, Reliable)
+	void Client_InitializeRoleHUD();
+
 protected:
 	UPROPERTY()
 	AInGameGameState* CachedGameState;
@@ -67,6 +70,7 @@ protected:
 	bool bIsSpectatorMode;
 
 	FTimerHandle HUDSyncTimer;
+
 
 	/** ✅ HUD 주기적 동기화 */
 	void SyncHUD();

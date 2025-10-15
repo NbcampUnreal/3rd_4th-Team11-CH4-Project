@@ -33,13 +33,13 @@ void AInGamePlayerController::BeginPlay()
 
 		GetWorld()->GetTimerManager().SetTimer(
 			HUDSyncTimer, this, &AInGamePlayerController::SyncHUD, 1.0f, true, 2.0f);
-
-		bShowMouseCursor = false;
-		bEnableClickEvents = false;
-		bEnableMouseOverEvents = false;
-
-		SetInputMode(FInputModeGameOnly());
 	}
+
+	bShowMouseCursor = false;
+	bEnableClickEvents = false;
+	bEnableMouseOverEvents = false;
+
+	SetInputMode(FInputModeGameOnly());
 }
 
 void AInGamePlayerController::SetupInputComponent()
@@ -241,4 +241,15 @@ void AInGamePlayerController::ClientUpdateSpectateUI_Implementation(const FStrin
 	}
 }
 
-#pragma endregion
+void AInGamePlayerController::Client_InitializeRoleHUD_Implementation()
+{
+	// 이 컨트롤러가 소유한 PlayerState와 HUD 위젯이 모두 유효한지 확인합니다.
+	if (InGameHUDInstance)
+	{
+		if (AInGamePlayerState* InGamePS = GetPlayerState<AInGamePlayerState>())
+		{
+			// HUD 위젯의 역할 설정 함수를 호출하고, 자신의 역할(bIsKiller)을 전달합니다.
+			InGameHUDInstance->SetRoleSpecificVisibility(InGamePS->bIsKiller);
+		}
+	}
+}
