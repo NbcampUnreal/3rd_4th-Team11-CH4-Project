@@ -20,6 +20,7 @@ class THEELEVENTHHOUR_API UInGameHUDWidget : public UUserWidget
 public:
     void SetRoleSpecificVisibility(bool bIsKiller);
     void UpdateHUD(int32 RemainingTime, int32 GeneratorsRepaired, bool bExitOpened);
+    void UpdateMurdererWidgets(bool bCanUseSkill, float RemainingCooldown, float TotalCooldown, float SkillDuration, float CurrentSprint, float MaxSprint);
 
 	
 protected:
