@@ -4,6 +4,7 @@
 #include "Murderer/OutlineManager/SurvivorOutlineManager.h"
 #include "Survivor/Character/EHSurvivorCharacter.h"
 #include "EngineUtils.h"
+#include "Kismet/GameplayStatics.h"
 #include "Murderer/MurdererCharacter.h"
 
 // Called when the game starts or when spawned
@@ -23,7 +24,7 @@ void ASurvivorOutlineManager::BeginPlay()
 		return;
 	}
 	
-	if (Cast<AMurdererCharacter>(GEngine->GetFirstLocalPlayerController(GetWorld())->GetPawn()))
+	if (Cast<AMurdererCharacter>(UGameplayStatics::GetPlayerPawn(GetWorld(),0)))
 	{
 		bIsKiller=true;
 		
@@ -45,8 +46,8 @@ void ASurvivorOutlineManager::AfterPossess()
 		UE_LOG(LogTemp,Log,TEXT("SERVER SIDE"));
 		return;
 	}
-	
-	if (Cast<AMurdererCharacter>(GEngine->GetFirstLocalPlayerController(GetWorld())->GetPawn()))
+
+	if (Cast<AMurdererCharacter>(UGameplayStatics::GetPlayerPawn(GetWorld(),0))->bIsKiller)
 	{
 		bIsKiller=true;
 		
@@ -75,6 +76,7 @@ void ASurvivorOutlineManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void ASurvivorOutlineManager::OnActorSpawned(AActor* Actor)
 {
+	
 	if (bIsKiller)
 	{
 		if (AEHSurvivorCharacter* Character=Cast<AEHSurvivorCharacter>(Actor))

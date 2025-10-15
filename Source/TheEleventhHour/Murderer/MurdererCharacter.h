@@ -50,6 +50,8 @@ public:
 	// 아웃라인 매니저 캐싱
 	UPROPERTY()
 	TObjectPtr<class ASurvivorOutlineManager> OutlineManager;
+
+	bool bIsKiller=true;
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -91,8 +93,7 @@ protected:
 
 	UPROPERTY(EditAnywhere,BlueprintReadWrite,Category="InputAction")
 	TObjectPtr<UInputAction> Skill1Action;
-
-
+	
 	UPROPERTY(EditDefaultsOnly,BlueprintReadOnly,Category="FootStepSound")
 	TObjectPtr<USoundBase> FootStepSound;
 	

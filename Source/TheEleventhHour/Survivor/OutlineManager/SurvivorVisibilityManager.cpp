@@ -57,13 +57,16 @@ void ASurvivorVisibilityManager::OnActorSpawned(AActor* Actor)
 {
 	if (!bIsLocalSurvivor) return;
 
-	if (AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(Actor))
+	if (bIsLocalSurvivor)
 	{
-		APawn* LocalPawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
-		if (Survivor != LocalPawn)
+		if (AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(Actor))
 		{
-			SurvivorCharacters.Add(Survivor);
-			Survivor->GetMesh()->SetOverlayMaterial(DefaultOutlineMaterial);
+			APawn* LocalPawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
+			if (Survivor != LocalPawn)
+			{
+				SurvivorCharacters.Add(Survivor);
+				Survivor->GetMesh()->SetOverlayMaterial(DefaultOutlineMaterial);
+			}
 		}
 	}
 }

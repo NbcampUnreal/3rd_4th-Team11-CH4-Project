@@ -11,7 +11,7 @@ class THEELEVENTHHOUR_API ASurvivorVisibilityManager : public AActor
 	
 public:	
 	ASurvivorVisibilityManager();
-
+	bool bIsLocalSurvivor = false;	
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(EEndPlayReason::Type EndPlayReason) override;
@@ -29,5 +29,4 @@ protected:
 	FDelegateHandle OnActorSpawnedHandle;
 
 private:
-	bool bIsLocalSurvivor = false;
 };

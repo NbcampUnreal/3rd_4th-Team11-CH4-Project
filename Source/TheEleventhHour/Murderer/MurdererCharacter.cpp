@@ -16,6 +16,7 @@
 #include "components/AudioComponent.h"
 #include "Map/BackgroundMusicActor.h"
 #include "Murderer/OutlineManager/SurvivorOutlineManager.h"
+#include "Survivor/OutlineManager/SurvivorVisibilityManager.h"
 
 // Sets default values
 AMurdererCharacter::AMurdererCharacter()
@@ -50,6 +51,8 @@ AMurdererCharacter::AMurdererCharacter()
 	ChaseMusicAudioComp = CreateDefaultSubobject<UAudioComponent>(TEXT("ChaseMusicAudio"));
 	ChaseMusicAudioComp->SetupAttachment(RootComponent);
 	ChaseMusicAudioComp->bAutoActivate = false;
+
+	bIsKiller=true;
 }
 
 void AMurdererCharacter::Tick(float DeltaSeconds)
@@ -185,6 +188,11 @@ void AMurdererCharacter::OnRep_Controller()
 		}
 		OutlineManager->AfterPossess();
 	}
+
+	if (ASurvivorVisibilityManager* tmp = Cast<ASurvivorVisibilityManager>(UGameplayStatics::GetActorOfClass(GetWorld(),ASurvivorVisibilityManager::StaticClass())))
+	{
+		tmp->bIsLocalSurvivor=false;
+	}
 }
 
 
@@ -249,7 +257,8 @@ void AMurdererCharacter::Skill1_Implementation()
 				bCanSkill1Use=true;
 			},
 			Skill1CooldownDuration,
-			false);
+			false
+			);
 	}
 }
 void AMurdererCharacter::OnRep_bCanSkill1Use()
