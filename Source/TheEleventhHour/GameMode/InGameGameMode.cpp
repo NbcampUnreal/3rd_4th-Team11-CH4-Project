@@ -15,6 +15,7 @@
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameMode/Controller/InGamePlayerController.h"
+#include "UI/Widgets/InGameHUD/Core/InGameHUDWidget.h"
 
 AInGameGameMode::AInGameGameMode()
 	: PrisonManager(nullptr)
@@ -182,7 +183,17 @@ void AInGameGameMode::CountdownTick()
 		GetWorld()->GetTimerManager().ClearTimer(CountdownTimer);
 		ReplaceKillerPawn();
 		StartMatchTimer();
-		// 정국님 여기서 Killer UI 관리하시면 됩니다 !!
+
+		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+		{
+			// PlayerController를 InGamePlayerController 타입으로 변환(Cast)합니다.
+			if (AInGamePlayerController* PC = Cast<AInGamePlayerController>(It->Get()))
+			{
+				// 해당 컨트롤러의 Client_InitializeRoleHUD 함수를 호출하여 신호를 보냅니다.
+				PC->Client_InitializeRoleHUD();
+			}
+		}
+
 		UE_LOG(LogTemp, Log, TEXT("[InGameGM] Countdown finished. Match begins."));
 	}
 	CountdownTime--;
