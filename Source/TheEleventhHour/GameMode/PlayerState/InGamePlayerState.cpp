@@ -139,7 +139,7 @@ void AInGamePlayerState::AddSurvivorCaptured()
 	
 	//UE_LOG(LogTemp, Log, TEXT("[PS] %s captured (%d/3)"), *GetPlayerName(), NumCapturedTimes);
 
-	if (NumCapturedTimes >= 1)
+	if (NumCapturedTimes > 3)
 	{
 		SurvivorState = ESurvivorState::Dead;
 
