@@ -43,7 +43,7 @@ void AInGameGameMode::BeginPlay()
 		{
 			GS->ExpectedPlayers = GameState->PlayerArray.Num();
 			GS->OnAllPlayersLoaded.AddDynamic(this, &AInGameGameMode::OnAllPlayersLoaded);
-			UE_LOG(LogTemp, Log, TEXT("[InGameGM] BeginPlay - ExpectedPlayers = %d"), GS->ExpectedPlayers);
+			//UE_LOG(LogTemp, Log, TEXT("[InGameGM] BeginPlay - ExpectedPlayers = %d"), GS->ExpectedPlayers);
 		}
 	}
 
@@ -55,7 +55,7 @@ void AInGameGameMode::BeginPlay()
 	}
 	if (PrisonManager)
 	{
-		UE_LOG(LogTemp, Log, TEXT("[InGameGM] PrisonManager found: %s"), *PrisonManager->GetName());
+		//UE_LOG(LogTemp, Log, TEXT("[InGameGM] PrisonManager found: %s"), *PrisonManager->GetName());
 	}
 }
 
@@ -68,7 +68,7 @@ void AInGameGameMode::PostSeamlessTravel()
 	if (AInGameGameState* GS = GetGameState<AInGameGameState>())
 	{
 		GS->ExpectedPlayers = GameState->PlayerArray.Num();
-		UE_LOG(LogTemp, Log, TEXT("[InGameGM] PostSeamlessTravel - ExpectedPlayers = %d"), GS->ExpectedPlayers);
+		//UE_LOG(LogTemp, Log, TEXT("[InGameGM] PostSeamlessTravel - ExpectedPlayers = %d"), GS->ExpectedPlayers);
 	}
 }
 
@@ -115,13 +115,13 @@ AActor* AInGameGameMode::ChoosePlayerStart_Implementation(AController* Player)
 		APlayerStart* ChosenStart = PlayerTaggedStarts[Index];
 
 		UsedStarts.Add(ChosenStart); // 사용 처리
-		UE_LOG(LogTemp, Log, TEXT("[ChoosePlayerStart] Spawned at %s"), *ChosenStart->GetName());
+		//UE_LOG(LogTemp, Log, TEXT("[ChoosePlayerStart] Spawned at %s"), *ChosenStart->GetName());
 
 		return ChosenStart;
 	}
 
 	// 🚨 모든 Start가 이미 사용되었거나 없을 경우 — 마지막 선택 사용
-	UE_LOG(LogTemp, Warning, TEXT("[ChoosePlayerStart] All 'Spawn.Player' points used or missing! Using default."));
+	//UE_LOG(LogTemp, Warning, TEXT("[ChoosePlayerStart] All 'Spawn.Player' points used or missing! Using default."));
 	return Super::ChoosePlayerStart_Implementation(Player);
 }
 
@@ -134,7 +134,7 @@ void AInGameGameMode::TryStartMatchWhenAllLoaded()
 	if (GS->LoadedPlayers >= GS->ExpectedPlayers && GS->ExpectedPlayers > 0)
 	{
 		bMatchStarted = true;
-		UE_LOG(LogTemp, Log, TEXT("[InGameGM] All players loaded (%d/%d). Starting countdown."), GS->LoadedPlayers, GS->ExpectedPlayers);
+		//UE_LOG(LogTemp, Log, TEXT("[InGameGM] All players loaded (%d/%d). Starting countdown."), GS->LoadedPlayers, GS->ExpectedPlayers);
 		AssignRoles();
 		StartCountdown();
 	}
@@ -143,7 +143,7 @@ void AInGameGameMode::TryStartMatchWhenAllLoaded()
 /* -------------------- OnAllPlayersLoaded -------------------- */
 void AInGameGameMode::OnAllPlayersLoaded()
 {
-	UE_LOG(LogTemp, Log, TEXT("[InGameGM] AllPlayersLoaded -> Countdown start."));
+	//UE_LOG(LogTemp, Log, TEXT("[InGameGM] AllPlayersLoaded -> Countdown start."));
 	AssignRoles();
 	StartCountdown();
 }
@@ -162,7 +162,7 @@ void AInGameGameMode::AssignRoles()
 		{
 			PS->bIsKiller = (i == KillerIndex);
 			PS->ForceNetUpdate();
-			UE_LOG(LogTemp, Log, TEXT("[RoleAssign] %s -> %s"), *PS->GetPlayerName(), PS->bIsKiller ? TEXT("KILLER") : TEXT("SURVIVOR"));
+			//UE_LOG(LogTemp, Log, TEXT("[RoleAssign] %s -> %s"), *PS->GetPlayerName(), PS->bIsKiller ? TEXT("KILLER") : TEXT("SURVIVOR"));
 		}
 	}
 }
@@ -176,7 +176,7 @@ void AInGameGameMode::StartCountdown()
 
 void AInGameGameMode::CountdownTick()
 {
-	UE_LOG(LogTemp, Log, TEXT("[InGameGM] Match starts in %d"), CountdownTime);
+	//UE_LOG(LogTemp, Log, TEXT("[InGameGM] Match starts in %d"), CountdownTime);
 
 	if (CountdownTime <= 1)
 	{
@@ -194,7 +194,7 @@ void AInGameGameMode::CountdownTick()
 			}
 		}
 
-		UE_LOG(LogTemp, Log, TEXT("[InGameGM] Countdown finished. Match begins."));
+		//UE_LOG(LogTemp, Log, TEXT("[InGameGM] Countdown finished. Match begins."));
 	}
 	CountdownTime--;
 }
@@ -202,7 +202,7 @@ void AInGameGameMode::CountdownTick()
 /* -------------------- ReplaceKillerPawn -------------------- */
 void AInGameGameMode::ReplaceKillerPawn()
 {
-	UE_LOG(LogTemp, Log, TEXT("[ReplaceKillerPawn] Killer pawn replacement start."));
+	//UE_LOG(LogTemp, Log, TEXT("[ReplaceKillerPawn] Killer pawn replacement start."));
 
 	APlayerController* KillerPC = nullptr;
 	AInGamePlayerState* KillerPS = nullptr;
@@ -278,12 +278,12 @@ void AInGameGameMode::CapturePlayer(AEHSurvivorCharacter* Victim)
 
 void AInGameGameMode::NotifyRescueStarted(AEHSurvivorCharacter* Rescuer)
 {
-	UE_LOG(LogTemp, Log, TEXT("[InGameGM] Rescue started by %s"), *Rescuer->GetName());
+	//UE_LOG(LogTemp, Log, TEXT("[InGameGM] Rescue started by %s"), *Rescuer->GetName());
 }
 
 void AInGameGameMode::NotifyRescueCompleted()
 {
-	UE_LOG(LogTemp, Log, TEXT("[InGameGM] Rescue completed"));
+	//UE_LOG(LogTemp, Log, TEXT("[InGameGM] Rescue completed"));
 	EvaluateAllPlayerStates();
 }
 
@@ -364,7 +364,7 @@ void AInGameGameMode::EndGame(const FString& Reason)
 		}
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("[InGameGM] GAME OVER: %s"), *Reason);
+	//UE_LOG(LogTemp, Warning, TEXT("[InGameGM] GAME OVER: %s"), *Reason);
 }
 
 /* -------------------- 발전기 -------------------- */
@@ -443,10 +443,10 @@ void AInGameGameMode::OnEscapeDoorOpened()
 	// 🔹 클라이언트 HUD 갱신 등을 위해 브로드캐스트 할 수도 있음 (옵션)
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(
+		/*GEngine->AddOnScreenDebugMessage(
 			-1, 3.f, FColor::Green,
 			TEXT("Escape Door Opened! 1 minute 30 seconds remaining!")
-		);
+		);*/
 	}
 }
 

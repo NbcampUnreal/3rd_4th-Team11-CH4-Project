@@ -15,7 +15,7 @@ void ATitleGameMode::BeginPlay()
 
 	if (HasAuthority() && GetNetMode() == NM_DedicatedServer)
 	{
-		UE_LOG(LogTemp, Log, TEXT("[Server] TitleGameMode::BeginPlay - Dedicated Server detected. Travelling to WaitingLevel..."));
+		//UE_LOG(LogTemp, Log, TEXT("[Server] TitleGameMode::BeginPlay - Dedicated Server detected. Travelling to WaitingLevel..."));
 
 		// Dedicated 서버가 Title 맵을 기본으로 실행한 뒤 자동으로 WaitingLevel 로 이동
 		GetWorld()->ServerTravel(TEXT("/Game/Levels/Maps/WaitingLevel"));

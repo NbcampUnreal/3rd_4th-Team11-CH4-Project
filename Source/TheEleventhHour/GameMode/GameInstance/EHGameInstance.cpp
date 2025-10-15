@@ -33,7 +33,6 @@ void UEHGameInstance::Init()
 	if (IsRunningDedicatedServer() && !bSessionCreated)
 	{
 		bSessionCreated = true;
-		UE_LOG(LogTemp, Warning, TEXT("[Server] Creating dedicated session"));
 		HostDedicatedSession();
 	}
 }
@@ -47,8 +46,7 @@ void UEHGameInstance::HostDedicatedSession()
 	Settings.bShouldAdvertise = true;
 	Settings.bIsLANMatch = true; // 로컬 테스트용
 	Settings.NumPublicConnections = 4;
-
-	UE_LOG(LogTemp, Log, TEXT("[Server] Creating Dedicated session with map WaitingLevel..."));
+	
 	SessionInterface->CreateSession(0, NAME_GameSession, Settings);
 }
 
@@ -56,12 +54,7 @@ void UEHGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSucces
 {
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogTemp, Log, TEXT("[Server] Dedicated session created. Opening WaitingLevel..."));
 		UGameplayStatics::OpenLevel(GetWorld(), TEXT("/Game/Levels/Maps/WaitingLevel"), true);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("[Server] Failed to create session."));
 	}
 }
 
@@ -69,7 +62,6 @@ void UEHGameInstance::ConnectToIP(const FString& ServerAddress)
 {
 	if (SessionInterface.IsValid() && SessionInterface->GetNamedSession(NAME_GameSession))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[Client] Destroying existing session before direct IP connect"));
 		SessionInterface->DestroySession(NAME_GameSession);
 	}
 
@@ -80,13 +72,8 @@ void UEHGameInstance::ConnectToIP(const FString& ServerAddress)
 		{
 			Dest.Append(TEXT(":7777"));
 		}
-
-		UE_LOG(LogTemp, Warning, TEXT("[Client] Direct connect to %s"), *Dest);
+		
 		PC->ClientTravel(Dest, TRAVEL_Absolute);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("[Client] No PlayerController to travel"));
 	}
 }
 

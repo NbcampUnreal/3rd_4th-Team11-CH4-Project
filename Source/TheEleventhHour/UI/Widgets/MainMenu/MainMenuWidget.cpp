@@ -82,26 +82,26 @@ void UMainMenuWidget::UpdateSelection()
 
 void UMainMenuWidget::ConfirmSelection()
 {
-	UE_LOG(LogTemp, Warning, TEXT("MainMenuWidget::ConfirmSelection >> CurrentIndex: %d"), CurrentIndex);
+	//UE_LOG(LogTemp, Warning, TEXT("MainMenuWidget::ConfirmSelection >> CurrentIndex: %d"), CurrentIndex);
 
 	switch (CurrentIndex)
 	{
 	case 0: // Play
-		UE_LOG(LogTemp, Error, TEXT("MainMenuWidget >> TRY BROADCAST: Play (Index %d)"), CurrentIndex);
+		//UE_LOG(LogTemp, Error, TEXT("MainMenuWidget >> TRY BROADCAST: Play (Index %d)"), CurrentIndex);
 		OnPlayClicked.Broadcast();
 		break;
 	case 1: // Join
 		OnInputIPClicked.Broadcast();
 		break;
 	case 2: // Options
-		UE_LOG(LogTemp, Error, TEXT("MainMenuWidget >> TRY BROADCAST: Options (Index %d)"), CurrentIndex);
+		//UE_LOG(LogTemp, Error, TEXT("MainMenuWidget >> TRY BROADCAST: Options (Index %d)"), CurrentIndex);
 		OnOptionsClicked.Broadcast();
 		break;
 	case 3: // Credits
 
 		break;
 	case 4: // Exit
-		UE_LOG(LogTemp, Error, TEXT("MainMenuWidget >> TRY BROADCAST: Exit (Index %d)"), CurrentIndex);
+		//UE_LOG(LogTemp, Error, TEXT("MainMenuWidget >> TRY BROADCAST: Exit (Index %d)"), CurrentIndex);
 		UKismetSystemLibrary::QuitGame(this, GetWorld()->GetFirstPlayerController(), EQuitPreference::Quit, true);
 		break;
 	}

@@ -31,7 +31,7 @@ bool UInventoryComponent::AddItem(EItemType Item)
         bHasKey = true;
         OnItemAdded.Broadcast(Item);  
         OnInventoryUpdated.Broadcast(); 
-        UE_LOG(LogItem, Log, TEXT("[Inventory] got KEY"));
+        //UE_LOG(LogItem, Log, TEXT("[Inventory] got KEY"));
         return true;
 
     case EItemType::Heal:
@@ -43,11 +43,11 @@ bool UInventoryComponent::AddItem(EItemType Item)
                 ConsumableSlots[i] = Item;
                 OnItemAdded.Broadcast(Item);   // UI
                 OnInventoryUpdated.Broadcast(); // UI
-                UE_LOG(LogItem, Log, TEXT("[Inventory] slot%d <- %s"), i, *UEnum::GetValueAsString(Item));
+                //UE_LOG(LogItem, Log, TEXT("[Inventory] slot%d <- %s"), i, *UEnum::GetValueAsString(Item));
                 return true;
             }
         }
-        UE_LOG(LogItem, Warning, TEXT("[Inventory] consumables full (2/2)"));
+        //UE_LOG(LogItem, Warning, TEXT("[Inventory] consumables full (2/2)"));
         return false;
 
     default: return false;
@@ -56,8 +56,9 @@ bool UInventoryComponent::AddItem(EItemType Item)
 
 bool UInventoryComponent::ConsumeKey()
 {
-    if (!bHasKey) { UE_LOG(LogItem, Warning, TEXT("[Inventory] no key to consume")); return false; }
-    bHasKey = false; UE_LOG(LogItem, Log, TEXT("[Inventory] key consumed"));
+    if (!bHasKey) { //UE_LOG(LogItem, Warning, TEXT("[Inventory] no key to consume"));
+        return false; }
+    bHasKey = false; //UE_LOG(LogItem, Log, TEXT("[Inventory] key consumed"));
     // UI 즉시 갱신
     OnInventoryUpdated.Broadcast();
     return true;
@@ -66,7 +67,8 @@ bool UInventoryComponent::ConsumeKey()
 bool UInventoryComponent::UseItemBySlot(int32 SlotIndex)
 {
     if (!ConsumableSlots.IsValidIndex(SlotIndex) || ConsumableSlots[SlotIndex] == EItemType::None)
-    { UE_LOG(LogItem, Warning, TEXT("[Inventory] slot%d empty"), SlotIndex); return false; }
+    { //E_LOG(LogItem, Warning, TEXT("[Inventory] slot%d empty"), SlotIndex);
+        return false; }
 
     const EItemType Item = ConsumableSlots[SlotIndex];
 
@@ -82,7 +84,7 @@ bool UInventoryComponent::UseItemBySlot(int32 SlotIndex)
                     const float HealAmount = 50.f;
                     const float NewHP = FMath::Clamp(Attr->GetHealth() + HealAmount, 0.f, Attr->MaxHealth);
                     Attr->SetHealth(NewHP);
-                    UE_LOG(LogItem, Log, TEXT("[Use] Heal +%.0f -> %.0f/%.0f"), HealAmount, NewHP, Attr->MaxHealth);
+                    //UE_LOG(LogItem, Log, TEXT("[Use] Heal +%.0f -> %.0f/%.0f"), HealAmount, NewHP, Attr->MaxHealth);
 
                     // ✅ 이미 상위 스코프에 선언된 OwnerActor를 그대로 사용
                     APawn* OwnerPawn = Cast<APawn>(OwnerActor);
@@ -96,7 +98,7 @@ bool UInventoryComponent::UseItemBySlot(int32 SlotIndex)
                             else
                                 InGamePS->ServerSetSurvivorState(ESurvivorState::Alive);
 
-                            UE_LOG(LogItem, Log, TEXT("[Inventory] Heal used -> SurvivorState set to Alive (%s)"), *InGamePS->GetPlayerName());
+                            //UE_LOG(LogItem, Log, TEXT("[Inventory] Heal used -> SurvivorState set to Alive (%s)"), *InGamePS->GetPlayerName());
                         }
                     }
                     break;
@@ -106,7 +108,7 @@ bool UInventoryComponent::UseItemBySlot(int32 SlotIndex)
             {
                 const float AddSpeed = 200.f, Duration = 5.f;
                 Attr->ApplySpeedBuff(AddSpeed, Duration);
-                UE_LOG(LogItem, Log, TEXT("[Use] Speed +%.0f for %.1fs"), AddSpeed, Duration);
+                //UE_LOG(LogItem, Log, TEXT("[Use] Speed +%.0f for %.1fs"), AddSpeed, Duration);
                 break;
             }
             default: break;

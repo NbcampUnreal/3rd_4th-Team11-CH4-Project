@@ -170,7 +170,7 @@ void AInGamePlayerController::ClientEnterSpectatorMode_Implementation()
 
 	PickInitialSpectateTarget(); // 살아 있는 타겟으로 전환
 
-	UE_LOG(LogTemp, Warning, TEXT("[InGamePC] 관전자 모드 진입"));
+	//UE_LOG(LogTemp, Warning, TEXT("[InGamePC] 관전자 모드 진입"));
 }
 
 void AInGamePlayerController::CollectAliveSpectateCandidates(TArray<AEHSurvivorCharacter*>& Out) const

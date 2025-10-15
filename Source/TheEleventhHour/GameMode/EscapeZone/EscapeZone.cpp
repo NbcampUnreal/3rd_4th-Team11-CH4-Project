@@ -36,15 +36,13 @@ void AEscapeZone::BeginPlay()
 {
 	Super::BeginPlay();
 
-	bEscapeEnabled = false;
-	UE_LOG(LogTemp, Log, TEXT("[EscapeZone] Initialized. Waiting for door activation."));
+	bEscapeEnabled = false; // 기본적으로 문 열리기 전엔 비활성화
 }
 
 /* 🔹 문 열릴 때 활성화 */
 void AEscapeZone::ActivateEscapeZone()
 {
 	bEscapeEnabled = true;
-	UE_LOG(LogTemp, Warning, TEXT("[EscapeZone] Escape Enabled — Survivors can now escape."));
 }
 
 /* 🔹 문 닫힐 때 비활성화 (선택) */
@@ -83,23 +81,15 @@ void AEscapeZone::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 		// 🔸 기존 기능 유지 (입력 제한, 움직임 정지)
 		Survivor->DisableInput(nullptr);
 		Survivor->GetCharacterMovement()->DisableMovement();
+	}
 
-		if (GEngine)
+	// 🔹 GameMode에서 Pawn 제거 + 관전자 모드 진입 처리
+	if (AInGameGameMode* GM = Survivor->GetWorld()->GetAuthGameMode<AInGameGameMode>())
+	{
+		AController* PlayerController = Survivor->GetController();
+		if (PlayerController)
 		{
-			GEngine->AddOnScreenDebugMessage(
-				-1, 3.f, FColor::Green,
-				FString::Printf(TEXT("✅ %s ESCAPED!"), *Survivor->GetName())
-			);
-		}
-
-		// 🔹 GameMode에서 Pawn 제거 + 관전자 모드 진입 처리
-		if (AInGameGameMode* GM = Survivor->GetWorld()->GetAuthGameMode<AInGameGameMode>())
-		{
-			AController* PlayerController = Survivor->GetController();
-			if (PlayerController)
-			{
-				GM->HandlePlayerRemoved(PlayerController, TEXT("You escaped successfully!"));
-			}
+			GM->HandlePlayerRemoved(PlayerController, TEXT("You escaped successfully!"));
 		}
 	}
 }

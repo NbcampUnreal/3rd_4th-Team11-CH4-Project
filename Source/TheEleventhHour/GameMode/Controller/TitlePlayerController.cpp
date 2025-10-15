@@ -84,7 +84,6 @@ void ATitlePlayerController::HideOptionsMenu()
 
 void ATitlePlayerController::HandleOptionsSelected()
 {
-    UE_LOG(LogTemp, Log, TEXT("PlayerController << RECEIVED BROADCAST: Options"));
 
     if (UEHGameInstance* GI = Cast<UEHGameInstance>(GetGameInstance()))
     {
@@ -97,10 +96,6 @@ void ATitlePlayerController::HandleOptionsSelected()
             SetInputMode(InputMode);
             SetShowMouseCursor(true);
         }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("PlayerController << FAILED to Cast to EHGameInstance!"));
     }
 }
 
@@ -121,8 +116,6 @@ void ATitlePlayerController::SetupUIInputMode(UUserWidget* FocusWidget)
 #pragma region Unchanged Functions
 void ATitlePlayerController::HandlePlaySelected()
 {
-    UE_LOG(LogTemp, Error, TEXT("--- 1. HandlePlaySelected CALLED ---"));
-
     if (UEHGameInstance* GI = Cast<UEHGameInstance>(GetGameInstance()))
     {
         const FString TargetIP = GI->GetIPAddress();
@@ -204,10 +197,6 @@ void ATitlePlayerController::CloseIPInputPopup()
 
 void ATitlePlayerController::ShowMessagePopup(const FText& Message)
 {
-    GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, Message.ToString());
-
-    UE_LOG(LogTemp, Warning, TEXT("ShowMessagePopup: %s"), *Message.ToString());
-
 }
 
 void ATitlePlayerController::HandleInputIPSelected() 
@@ -231,8 +220,6 @@ void ATitlePlayerController::OnIntroEnd()
 
 void ATitlePlayerController::OnZoomInEnd()
 {
-    UE_LOG(LogTemp, Error, TEXT("--- 2. OnZoomInEnd CALLED ---"));
-
     if (ZoomInVideoInstance) 
     { 
         ZoomInVideoInstance->RemoveFromParent(); 

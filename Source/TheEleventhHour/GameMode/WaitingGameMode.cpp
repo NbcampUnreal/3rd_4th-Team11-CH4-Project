@@ -27,7 +27,7 @@ void AWaitingGameMode::BeginPlay()
 		}
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[WaitingGM] Found %d PlayerStart spawn points"), SpawnPoints.Num());
+	//UE_LOG(LogTemp, Log, TEXT("[WaitingGM] Found %d PlayerStart spawn points"), SpawnPoints.Num());
 }
 
 void AWaitingGameMode::PostLogin(APlayerController* NewPlayer)
@@ -41,8 +41,8 @@ void AWaitingGameMode::PostLogin(APlayerController* NewPlayer)
 	{
 		// 움직임 막고 대기 상태 처리만
 		Char->DisableInput(NewPlayer);
-		UE_LOG(LogTemp, Log, TEXT("[WaitingGM] Existing Pawn %s found for %s"),
-			*Char->GetName(), *NewPlayer->GetName());
+		//UE_LOG(LogTemp, Log, TEXT("[WaitingGM] Existing Pawn %s found for %s"),
+		//	*Char->GetName(), *NewPlayer->GetName());
 	}
 
 	if (AWaitingGameState* GS = GetGameState<AWaitingGameState>())
@@ -67,7 +67,7 @@ void AWaitingGameMode::StartGame()
 	{
 		if (GS->ReadyCount == GS->TotalPlayers && GS->TotalPlayers > 0)
 		{
-			UE_LOG(LogTemp, Log, TEXT("[Server] All players ready! Starting game..."));
+			//UE_LOG(LogTemp, Log, TEXT("[Server] All players ready! Starting game..."));
 
 			// 🔹 다음 맵으로 이동 시 플레이어 수를 GameState에 저장
 			for (APlayerState* PS : GameState->PlayerArray)

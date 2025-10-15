@@ -54,8 +54,8 @@ void AGenerators::StartRepair(AEHSurvivorCharacter* Survivor)
 	if (Survivor && !InteractSurvivors.Contains(Survivor))
 	{
 		InteractSurvivors.Add(Survivor);
-		UE_LOG(LogTemp, Log, TEXT("[UI_SIMPLE] Added Survivor: %s (Total: %d)"), 
-			   *Survivor->GetName(), InteractSurvivors.Num());
+		//UE_LOG(LogTemp, Log, TEXT("[UI_SIMPLE] Added Survivor: %s (Total: %d)"), 
+		//	   *Survivor->GetName(), InteractSurvivors.Num());
 	}
 	RepairCount++;
 	if (RepairTimerHandle.IsValid()) return;
@@ -75,8 +75,8 @@ void AGenerators::CancelRepair(AEHSurvivorCharacter* Survivor)
 	if (Survivor)
 	{
 		InteractSurvivors.Remove(Survivor);
-		UE_LOG(LogTemp, Log, TEXT("[UI_SIMPLE] Removed Survivor: %s (Total: %d)"), 
-			   *Survivor->GetName(), InteractSurvivors.Num());
+		//E_LOG(LogTemp, Log, TEXT("[UI_SIMPLE] Removed Survivor: %s (Total: %d)"), 
+		//	   *Survivor->GetName(), InteractSurvivors.Num());
 	}
 	RepairCount--;
 }
@@ -155,8 +155,8 @@ void AGenerators::CompleteGenerator()
 				if (AInGamePlayerState* PS = Survivor->GetPlayerState<AInGamePlayerState>())
 				{
 					PS->AddGeneratorRepair();
-					UE_LOG(LogTemp, Log, TEXT("[Generator] %s repaired generator (total: %d)"),
-						*PS->GetPlayerName(), PS->NumGeneratorsRepaired);
+					//UE_LOG(LogTemp, Log, TEXT("[Generator] %s repaired generator (total: %d)"),
+					//	*PS->GetPlayerName(), PS->NumGeneratorsRepaired);
 
 					if (AInGameGameMode* GM = GetWorld()->GetAuthGameMode<AInGameGameMode>())
 					{
@@ -231,10 +231,5 @@ void AGenerators::MulticastRPCStopGeneratorSound_Implementation()
 //디버깅용
 void AGenerators::MulticastRPCShowRepairProgress_Implementation()
 {
-	if (GEngine)
-	{
-		FString DebugMsg = FString::Printf(TEXT("RepairProgress: %.2f, RepairCount: %d"), RepairProgress, RepairCount);
-		GEngine->AddOnScreenDebugMessage(-1, RepairDuration - 0.01f, FColor::Green, DebugMsg);
-	}
 }
 
