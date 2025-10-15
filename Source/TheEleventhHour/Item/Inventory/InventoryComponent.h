@@ -54,9 +54,9 @@ protected:
 	void OnRep_HasKey();
 
 private:
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing=OnRep_HasKey)
 	bool bHasKey = false;                      // 열쇠 전용(최대 1)
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing=OnRep_ConsumableSlots)
 	TArray<EItemType> ConsumableSlots;         // 2칸 (Heal/Speed 혼합 가능)
 };

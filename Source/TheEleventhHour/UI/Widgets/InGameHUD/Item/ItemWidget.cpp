@@ -14,15 +14,18 @@ void UItemWidget::NativeConstruct()
 void UItemWidget::InitializeInventory()
 {
     APawn* OwnerPawn = GetOwningPlayerPawn();
+    UE_LOG(LogTemp, Warning, TEXT("[ItemWidget] OwnerPawn=%s"),
+        OwnerPawn ? *OwnerPawn->GetName() : TEXT("NULL"));
+
     if (AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(OwnerPawn))
     {
         LinkedInventory = Survivor->FindComponentByClass<UInventoryComponent>();
+        UE_LOG(LogTemp, Warning, TEXT("[ItemWidget] LinkedInventory=%s"),
+            LinkedInventory ? *LinkedInventory->GetName() : TEXT("NULL"));
+
         if (LinkedInventory)
         {
-            // InventoryComponent의 OnInventoryUpdated 신호가 오면 OnInventoryUpdated 함수를 호출하도록 '구독'
             LinkedInventory->OnInventoryUpdated.AddDynamic(this, &UItemWidget::OnInventoryUpdated);
-
-            // 현재 인벤토리 상태를 즉시 한번 반영
             OnInventoryUpdated();
         }
     }
@@ -30,11 +33,14 @@ void UItemWidget::InitializeInventory()
 
 void UItemWidget::OnInventoryUpdated()
 {
+    UE_LOG(LogTemp, Warning, TEXT("[ItemWidget] OnInventoryUpdated CALLED"));
     if (!LinkedInventory) return;
 
     EItemType Item0 = LinkedInventory->GetConsumableInSlot(0);
     EItemType Item1 = LinkedInventory->GetConsumableInSlot(1);
+    UE_LOG(LogTemp, Warning, TEXT("[ItemWidget] Slots: [0]=%s [1]=%s"),
+        *UEnum::GetValueAsString(Item0), *UEnum::GetValueAsString(Item1));
 
-    if (ItemSlot_0) { ItemSlot_0->UpdateSlot(Item0); }
-    if (ItemSlot_1) { ItemSlot_1->UpdateSlot(Item1); }
+    if (ItemSlot_0) ItemSlot_0->UpdateSlot(Item0);
+    if (ItemSlot_1) ItemSlot_1->UpdateSlot(Item1);
 }
