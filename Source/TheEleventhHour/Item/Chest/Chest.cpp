@@ -8,9 +8,12 @@
 #include "Engine/DamageEvents.h"
 #include "Sound/SoundBase.h"
 #include "Components/AudioComponent.h"
+#include "GameMode/InGameGameMode.h"
+#include "GameMode/PlayerState/InGamePlayerState.h"
 #include "Item/ItemPickup/ItemPickup.h"
 #include "Item/ItemLog/ItemLog.h"
 #include "Murderer/MurdererCharacter.h"
+#include "Survivor/Character/EHSurvivorCharacter.h"
 
 AChest::AChest()
 {
@@ -81,44 +84,23 @@ float AChest::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
                          AController* EventInstigator, AActor* DamageCauser)
 {
     if (!HasAuthority() || CurrentHP <= 0.f)
-    {
-        UE_LOG(LogTemp, Warning,
-            TEXT("Chest::TakeDamage SKIPPED (HasAuthority=%d, CurrentHP=%.1f)"),
-            HasAuthority(), CurrentHP);
         return 0.f;
-    }
-    // 살인마일 때 무시
+
+    // 🔹 살인마가 상자 부수는 건 무시
     if (bIgnoreDamageFromMurderer && DamageCauser && DamageCauser->IsA(AMurdererCharacter::StaticClass()))
     {
-        UE_LOG(LogTemp, Warning, TEXT("Chest::TakeDamage IGNORED (Murderer cannot break chests)"));
         return 0.f;
     }
-    
+
     const float OldHP = CurrentHP;
-    
-    const float ValidDamage = FMath::IsFinite(DamageAmount) 
-        ? FMath::Max(0.f, DamageAmount) 
-        : 0.f;
+    const float ValidDamage = FMath::Max(0.f, DamageAmount);
+    CurrentHP = FMath::Clamp(CurrentHP - ValidDamage, 0.f, MaxHP);
 
-    if (ValidDamage <= 0.f)
+    if (CurrentHP < OldHP)
     {
-        UE_LOG(LogTemp, Warning,
-            TEXT("Chest::TakeDamage IGNORED (Invalid Damage=%.1f)"),
-            DamageAmount);
-        return 0.f;
-    }
-    
-    const float NewHP = FMath::Clamp(OldHP - ValidDamage, 0.f, MaxHP);
-    
-    if (NewHP < OldHP)
-    {
-        UE_LOG(LogTemp, Warning,
-            TEXT("Chest::TakeDamage SUCCESS -> HP: %.1f -> %.1f | Damage: %.1f | Causer: %s"),
-            OldHP, NewHP, ValidDamage, *GetNameSafe(DamageCauser));
-
-        CurrentHP = NewHP;
-        MulticastPlayHitSFX();       // 한 번 ‘딱’ 소리
-        MulticastStartDamageLoop();  // 연타 동안 ‘웅—’ 유지
+        // 🔹 히트 사운드 / 루프 사운드
+        MulticastPlayHitSFX();
+        MulticastStartDamageLoop();
 
         GetWorldTimerManager().ClearTimer(DamageLoopStopTimer);
         GetWorldTimerManager().SetTimer(
@@ -126,19 +108,29 @@ float AChest::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
             DamageLoopStopDelay, false
         );
     }
-    else
-    {
-        UE_LOG(LogTemp, Warning,
-            TEXT("Chest::TakeDamage NO CHANGE (Damage=%.1f did not reduce HP)"),
-            ValidDamage);
-        return 0.f;
-    }
+
+    // 🔹 파괴 판정
     if (CurrentHP <= 0.f)
     {
-        UE_LOG(LogTemp, Warning,
-            TEXT("Chest::TakeDamage CHEST BROKEN! Calling ServerBreakChest()"));
-        ServerBreakChest();
+        AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(DamageCauser);
+        if (Survivor)
+        {
+            if (AInGamePlayerState* PS = Survivor->GetPlayerState<AInGamePlayerState>())
+            {
+                PS->AddChestBroken();
+                UE_LOG(LogTemp, Log, TEXT("[Chest] %s broke a chest (total: %d)"),
+                    *PS->GetPlayerName(), PS->NumChestsBroken);
+
+                if (AInGameGameMode* GM = GetWorld()->GetAuthGameMode<AInGameGameMode>())
+                {
+                    GM->LogAllPlayerStates();
+                }
+            }
+        }
+
+        ServerBreakChest(); // 🔹 원래 기능 유지
     }
+
     return ValidDamage;
 }
 

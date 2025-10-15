@@ -6,6 +6,7 @@
 #include "GameFramework/PlayerStart.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EngineUtils.h"
+#include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
 
 APrisonManager::APrisonManager()
@@ -64,6 +65,28 @@ void APrisonManager::Capture(AEHSurvivorCharacter* Victim)
 		if (AInGamePlayerState* PS = Victim->GetPlayerState<AInGamePlayerState>())
 			PS->ServerSetSurvivorState(ESurvivorState::Captured);
 
+		// ✅ 통계 업데이트 (서버만)
+		if (AInGamePlayerState* VictimPS = Victim->GetPlayerState<AInGamePlayerState>())
+		{
+			VictimPS->AddCapturedTime();
+		}
+
+		// ✅ 킬러 통계도 추가
+		if (AInGameGameMode* GM = GetWorld()->GetAuthGameMode<AInGameGameMode>())
+		{
+			for (APlayerState* PS : GM->GameState->PlayerArray)
+			{
+				if (AInGamePlayerState* KillerPS = Cast<AInGamePlayerState>(PS))
+				{
+					if (KillerPS->bIsKiller)
+					{
+						KillerPS->AddKillerCapture();
+						break;
+					}
+				}
+			}
+		}
+		
 		UE_LOG(LogTemp, Warning, TEXT("[PrisonManager] %s captured and teleported."), *Victim->GetName());
 	}
 }

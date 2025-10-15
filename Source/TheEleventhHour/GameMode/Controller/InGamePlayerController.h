@@ -8,13 +8,8 @@ class AInGameGameState;
 class AInGamePlayerState;
 class UInGameHUDWidget;
 class UResultScreenWidget;
+class AEHSurvivorCharacter;
 
-/**
- * 인게임 플레이어 컨트롤러
- * - 클라이언트가 로딩 완료 시 서버에 알림
- * - 게임 상태 변화를 수신하여 HUD/UI 갱신
- * - 탈출/사망 등 이벤트 처리 예정
- */
 UCLASS()
 class THEELEVENTHHOUR_API AInGamePlayerController : public APlayerController
 {
@@ -24,6 +19,7 @@ public:
 	AInGamePlayerController();
 
 	virtual void BeginPlay() override;
+	virtual void SetupInputComponent() override;
 	virtual void Tick(float DeltaSeconds) override;
 
 	/** ✅ 클라이언트 → 서버 : 로딩 완료 알림 */
@@ -38,29 +34,51 @@ public:
 	UFUNCTION(Client, Reliable)
 	void ClientOnGameEnded(const FString& EndReason);
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Match")
-	bool bHasNotifiedLoaded = false;
+	/** ✅ 관전 모드 진입 */
+	UFUNCTION(Client, Reliable)
+	void ClientEnterSpectatorMode();
+
+	/** ✅ 관전 UI 갱신 */
+	UFUNCTION(Client, Reliable)
+	void ClientUpdateSpectateUI(const FString& TargetPlayerName);
 
 protected:
-	FTimerHandle HUDSyncTimer;
-
-	/** 주기적으로 GameState를 확인하여 HUD 동기화 */
-	void SyncHUD();
-
-	/** 내부 참조 캐시 */
 	UPROPERTY()
 	AInGameGameState* CachedGameState;
 
 	UPROPERTY()
 	AInGamePlayerState* CachedPlayerState;
 
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	UPROPERTY(EditDefaultsOnly, Category="UI")
 	TSubclassOf<UInGameHUDWidget> InGameHUDWidgetClass;
 
 	UPROPERTY()
 	TObjectPtr<UInGameHUDWidget> InGameHUDInstance;
 
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	UPROPERTY(EditDefaultsOnly, Category="UI")
 	TSubclassOf<UResultScreenWidget> ResultScreenWidgetClass;
 
+	UPROPERTY()
+	bool bHasNotifiedLoaded;
+
+	UPROPERTY()
+	bool bIsSpectatorMode;
+
+	FTimerHandle HUDSyncTimer;
+
+	/** ✅ HUD 주기적 동기화 */
+	void SyncHUD();
+
+	/** ======= 관전 시스템 ======= */
+	void HandleSpectateNextInput();
+	void HandleSpectatePrevInput();
+
+	void CollectAliveSpectateCandidates(TArray<AEHSurvivorCharacter*>& Out) const;
+	void PickInitialSpectateTarget();
+
+	UFUNCTION(Server, Reliable)
+	void ServerSetSpectateTarget(bool bNext);
+
+	void NextSpectateTarget();
+	void PrevSpectateTarget();
 };
