@@ -9,6 +9,8 @@ class AInGamePlayerState;
 class UInGameHUDWidget;
 class UResultScreenWidget;
 class AEHSurvivorCharacter;
+class AMurdererCharacter;
+class AEHSurvivorCharacter;
 
 UCLASS()
 class THEELEVENTHHOUR_API AInGamePlayerController : public APlayerController
