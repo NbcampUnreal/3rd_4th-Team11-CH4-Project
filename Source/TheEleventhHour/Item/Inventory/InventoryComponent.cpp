@@ -1,5 +1,7 @@
 // InventoryComponent.cpp
 #include "Item/Inventory/InventoryComponent.h"
+
+#include "GameMode/PlayerState/InGamePlayerState.h"
 #include "Item/ItemLog/ItemLog.h"
 #include "Survivor/Character/AttributeComponent.h"
 #include "Net/UnrealNetwork.h"
@@ -76,13 +78,30 @@ bool UInventoryComponent::UseItemBySlot(int32 SlotIndex)
             switch (Item)
             {
             case EItemType::Heal:
-            {
-                const float HealAmount = 50.f;
-                const float NewHP = FMath::Clamp(Attr->GetHealth()+HealAmount, 0.f, Attr->MaxHealth);
-                Attr->SetHealth(NewHP);
-                UE_LOG(LogItem, Log, TEXT("[Use] Heal +%.0f -> %.0f/%.0f"), HealAmount, NewHP, Attr->MaxHealth);
-                break;
-            }
+                {
+                    const float HealAmount = 50.f;
+                    const float NewHP = FMath::Clamp(Attr->GetHealth() + HealAmount, 0.f, Attr->MaxHealth);
+                    Attr->SetHealth(NewHP);
+                    UE_LOG(LogItem, Log, TEXT("[Use] Heal +%.0f -> %.0f/%.0f"), HealAmount, NewHP, Attr->MaxHealth);
+
+                    // ✅ 이미 상위 스코프에 선언된 OwnerActor를 그대로 사용
+                    APawn* OwnerPawn = Cast<APawn>(OwnerActor);
+                    if (OwnerPawn)
+                    {
+                        APlayerState* PS = OwnerPawn->GetPlayerState();
+                        if (AInGamePlayerState* InGamePS = Cast<AInGamePlayerState>(PS))
+                        {
+                            if (OwnerPawn->HasAuthority())
+                                InGamePS->ServerSetSurvivorState(ESurvivorState::Alive);
+                            else
+                                InGamePS->ServerSetSurvivorState(ESurvivorState::Alive);
+
+                            UE_LOG(LogItem, Log, TEXT("[Inventory] Heal used -> SurvivorState set to Alive (%s)"), *InGamePS->GetPlayerName());
+                        }
+                    }
+                    break;
+                }
+
             case EItemType::Speed:
             {
                 const float AddSpeed = 200.f, Duration = 5.f;

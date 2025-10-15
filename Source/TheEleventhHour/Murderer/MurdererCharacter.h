@@ -12,6 +12,7 @@ class USpringArmComponent;
 class UInputMappingContext;
 class UInputAction;
 class USkeletalMeshComponent;
+class UAudioComponent;
 struct FInputActionValue;
 
 UCLASS()
@@ -19,6 +20,22 @@ class THEELEVENTHHOUR_API AMurdererCharacter : public ACharacter
 {
 	GENERATED_BODY()
 
+#pragma region Chase Music
+protected:
+	//추격 음악용 오디오 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category="Audio")
+	TObjectPtr<UAudioComponent> ChaseMusicAudioComp;
+    
+	//BackgroundMusicActor 참조
+	UPROPERTY()
+	TObjectPtr<class ABackgroundMusicActor> BGMActor;
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Audio")
+	USoundBase* ChaseMusic;
+    
+#pragma endregion
+	
 public:
 	// Sets default values for this character's properties
 	AMurdererCharacter();

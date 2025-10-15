@@ -8,9 +8,12 @@
 #include "Engine/DamageEvents.h"
 #include "Sound/SoundBase.h"
 #include "Components/AudioComponent.h"
+#include "GameMode/InGameGameMode.h"
+#include "GameMode/PlayerState/InGamePlayerState.h"
 #include "Item/ItemPickup/ItemPickup.h"
 #include "Item/ItemLog/ItemLog.h"
 #include "Murderer/MurdererCharacter.h"
+#include "Survivor/Character/EHSurvivorCharacter.h"
 
 AChest::AChest()
 {
@@ -81,33 +84,23 @@ float AChest::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
                          AController* EventInstigator, AActor* DamageCauser)
 {
     if (!HasAuthority() || CurrentHP <= 0.f)
-    {
         return 0.f;
-    }
-    // 살인마일 때 무시
+
+    // 🔹 살인마가 상자 부수는 건 무시
     if (bIgnoreDamageFromMurderer && DamageCauser && DamageCauser->IsA(AMurdererCharacter::StaticClass()))
     {
         return 0.f;
     }
-    
-    const float OldHP = CurrentHP;
-    
-    const float ValidDamage = FMath::IsFinite(DamageAmount) 
-        ? FMath::Max(0.f, DamageAmount) 
-        : 0.f;
 
-    if (ValidDamage <= 0.f)
+    const float OldHP = CurrentHP;
+    const float ValidDamage = FMath::Max(0.f, DamageAmount);
+    CurrentHP = FMath::Clamp(CurrentHP - ValidDamage, 0.f, MaxHP);
+
+    if (CurrentHP < OldHP)
     {
-        return 0.f;
-    }
-    
-    const float NewHP = FMath::Clamp(OldHP - ValidDamage, 0.f, MaxHP);
-    
-    if (NewHP < OldHP)
-    {
-        CurrentHP = NewHP;
-        MulticastPlayHitSFX();       
-        MulticastStartDamageLoop(); 
+        // 🔹 히트 사운드 / 루프 사운드
+        MulticastPlayHitSFX();
+        MulticastStartDamageLoop();
 
         GetWorldTimerManager().ClearTimer(DamageLoopStopTimer);
         GetWorldTimerManager().SetTimer(
@@ -115,14 +108,29 @@ float AChest::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
             DamageLoopStopDelay, false
         );
     }
-    else
-    {
-        return 0.f;
-    }
+
+    // 🔹 파괴 판정
     if (CurrentHP <= 0.f)
     {
-        ServerBreakChest();
+        AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(DamageCauser);
+        if (Survivor)
+        {
+            if (AInGamePlayerState* PS = Survivor->GetPlayerState<AInGamePlayerState>())
+            {
+                PS->AddChestBroken();
+                UE_LOG(LogTemp, Log, TEXT("[Chest] %s broke a chest (total: %d)"),
+                    *PS->GetPlayerName(), PS->NumChestsBroken);
+
+                if (AInGameGameMode* GM = GetWorld()->GetAuthGameMode<AInGameGameMode>())
+                {
+                    GM->LogAllPlayerStates();
+                }
+            }
+        }
+
+        ServerBreakChest(); // 🔹 원래 기능 유지
     }
+
     return ValidDamage;
 }
 
@@ -158,16 +166,21 @@ void AChest::ServerBreakChest_Implementation()
 
         GetWorld()->SpawnActor<AItemPickup>(DropClass, Loc, Rot, Params);
     }
-    
+
+    // FX/SFX
     SetNetDormancy(DORM_Awake);
     ForceNetUpdate();
-    
+
+    // 3) 🔊 파괴음: 모든 클라에서 Reliable 멀티캐스트로 위치 재생
     MulticastPlayBreakSFX();
-    
+
+    // 4) (선택) FX — 모든 클라에서 보이고 싶으면 멀티캐스트 함수로 빼는 걸 권장
     if (BreakFX)
     {
         UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BreakFX, GetActorTransform());
     }
+
+    // 5) 마지막에 파괴
     Destroy();
 }
 // ========== SFX 멀티캐스트들 ==========
@@ -217,7 +230,16 @@ void AChest::MulticastPlayBreakSFX_Implementation()
 {
     if (BreakSFX)
     {
+        UE_LOG(LogItem, Log, TEXT("[Chest] 파괴음 멀티캐스트 호출: %s, 사운드=%s"),
+    HasAuthority() ? TEXT("서버") : TEXT("클라이언트"),
+    *BreakSFX->GetName());
+        
         UGameplayStatics::PlaySoundAtLocation(this, BreakSFX, GetActorLocation());
+    }
+    else
+    {
+        UE_LOG(LogItem, Warning, TEXT("[Chest] 파괴음 멀티캐스트 호출: %s, 하지만 BreakSFX가 비어있음"),
+            HasAuthority() ? TEXT("서버") : TEXT("클라이언트"));
     }
 }
 void AChest::SnapToGround()
@@ -233,6 +255,11 @@ void AChest::SnapToGround()
     {
         const FVector NewLoc = Hit.ImpactPoint + FVector(0, 0, GroundSnapOffset);
         SetActorLocation(NewLoc, false, nullptr, ETeleportType::TeleportPhysics);
+        UE_LOG(LogItem, Log, TEXT("[Chest] 지면 스냅 적용: %s → Z=%.1f"), *GetName(), NewLoc.Z);
+    }
+    else
+    {
+        UE_LOG(LogItem, Warning, TEXT("[Chest] 지면 스냅 실패: %s (트레이스 미히트)"), *GetName());
     }
 }
 
@@ -243,4 +270,5 @@ void AChest::EnableCollisionDeferred()
     {
         HitBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
     }
+    UE_LOG(LogItem, Log, TEXT("[Chest] 충돌 재활성화"));
 }

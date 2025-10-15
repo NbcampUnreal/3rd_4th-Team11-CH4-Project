@@ -4,6 +4,8 @@
 #include "Net/UnrealNetwork.h"
 #include "Engine/World.h"
 #include "Engine/Engine.h"
+#include "GameMode/Controller/InGamePlayerController.h"
+#include "Survivor/Character/EHSurvivorCharacter.h"
 
 AInGamePlayerState::AInGamePlayerState()
 {
@@ -23,7 +25,6 @@ void AInGamePlayerState::ServerSetReady_Implementation(bool bNewReady)
 	bIsReady = bNewReady;
 	OnRep_bIsReady();
 
-	// ✅ 대기실 상태 업데이트 (WaitingGameState)
 	UpdateGameStateReadyCount();
 }
 
@@ -31,6 +32,16 @@ void AInGamePlayerState::OnRep_bIsReady()
 {
 	UE_LOG(LogTemp, Log, TEXT("[PS] %s Ready -> %d"), *GetPlayerName(), bIsReady);
 	UpdateGameStateReadyCount();
+}
+
+void AInGamePlayerState::UpdateGameStateReadyCount()
+{
+	if (!GetWorld() || !HasAuthority()) return;
+
+	if (AWaitingGameState* GS = GetWorld()->GetGameState<AWaitingGameState>())
+	{
+		GS->UpdateReadyState();
+	}
 }
 
 /* -------------------- Killer -------------------- */
@@ -45,17 +56,17 @@ void AInGamePlayerState::OnRep_bIsKiller()
 void AInGamePlayerState::ServerSetSurvivorState_Implementation(ESurvivorState NewState)
 {
 	if (SurvivorState == NewState)
-		return; // 중복 방지
+		return;
 
 	SurvivorState = NewState;
 	OnRep_SurvivorState();
-
-	// ✅ 인게임 상태 변화 → GameMode에 알림
 	NotifyGameModeStateChanged();
 
-	// ✅ 감옥 이동 처리 (서버 전용)
+	// ✅ 감옥에 갇혔을 때 횟수 누적
 	if (HasAuthority() && NewState == ESurvivorState::Captured)
 	{
+		AddCapturedTime();
+
 		if (AInGameGameMode* GM = GetWorld()->GetAuthGameMode<AInGameGameMode>())
 		{
 			GM->SendToPrison(this);
@@ -69,30 +80,31 @@ void AInGamePlayerState::OnRep_SurvivorState()
 	const FString StateName = StaticEnum<ESurvivorState>()->GetNameStringByValue((int64)SurvivorState);
 	UE_LOG(LogTemp, Warning, TEXT("[PS] %s SurvivorState -> %s"), *GetPlayerName(), *StateName);
 
-	// 🔹 HUD/UI 반영 가능 (Delegate or Widget Update)
 	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Cyan,
 			FString::Printf(TEXT("%s 상태: %s"), *GetPlayerName(), *StateName));
 	}
-}
 
-/* -------------------- Waiting 단계 GameState 갱신 -------------------- */
-void AInGamePlayerState::UpdateGameStateReadyCount()
-{
-	if (!GetWorld()) return;
+	// ✅ 상태 변경 후 관전 모드 진입 처리
+	APlayerController* OwnerPC = Cast<APlayerController>(GetOwner());
+	if (!OwnerPC) return;
 
-	if (HasAuthority())
+	// ✅ 로컬 컨트롤러일 때만 적용 (다른 클라에는 적용 안 됨)
+	if (OwnerPC->IsLocalController())
 	{
-		if (AWaitingGameState* GS = GetWorld()->GetGameState<AWaitingGameState>())
+		// Dead 또는 Escaped 상태라면 관전 모드 진입
+		if (SurvivorState == ESurvivorState::Dead || SurvivorState == ESurvivorState::Escaped)
 		{
-			GS->UpdateReadyState();
-			UE_LOG(LogTemp, Log, TEXT("[PS] (%s) UpdateGameStateReadyCount() called"), *GetPlayerName());
+			if (AInGamePlayerController* InGamePC = Cast<AInGamePlayerController>(OwnerPC))
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[PS] %s -> Spectator Mode 진입"), *GetPlayerName());
+				InGamePC->ClientEnterSpectatorMode();
+			}
 		}
 	}
 }
 
-/* -------------------- InGame 단계 GameMode 통보 -------------------- */
 void AInGamePlayerState::NotifyGameModeStateChanged()
 {
 	if (HasAuthority())
@@ -101,11 +113,81 @@ void AInGamePlayerState::NotifyGameModeStateChanged()
 		{
 			GM->EvaluateAllPlayerStates();
 			GM->CheckVictoryConditions();
-			UE_LOG(LogTemp, Log, TEXT("[PS] (%s) NotifyGameModeStateChanged() → EvaluateAllPlayerStates()"), *GetPlayerName());
 		}
 	}
 }
 
+/* -------------------- 통계 관리 -------------------- */
+void AInGamePlayerState::AddGeneratorRepair()
+{
+	if (HasAuthority())
+	{
+		NumGeneratorsRepaired++;
+		UE_LOG(LogTemp, Log, TEXT("[Stats] %s repaired generator (%d)"), *GetPlayerName(), NumGeneratorsRepaired);
+	}
+}
+
+void AInGamePlayerState::AddChestBroken()
+{
+	if (HasAuthority())
+	{
+		NumChestsBroken++;
+	}
+}
+
+void AInGamePlayerState::AddPrisonUnlocked()
+{
+	if (HasAuthority())
+	{
+		NumPrisonsUnlocked++;
+	}
+}
+
+void AInGamePlayerState::AddSurvivorCaptured()
+{
+	if (!HasAuthority()) return;
+
+	NumCapturedTimes++;
+	UE_LOG(LogTemp, Log, TEXT("[PS] %s captured (%d/3)"), *GetPlayerName(), NumCapturedTimes);
+
+	if (NumCapturedTimes >= 3)
+	{
+		SurvivorState = ESurvivorState::Dead;
+
+		if (AInGameGameMode* GM = GetWorld()->GetAuthGameMode<AInGameGameMode>())
+		{
+			if (AEHSurvivorCharacter* Victim = Cast<AEHSurvivorCharacter>(GetPawn()))
+			{
+				GM->OnSurvivorKilled(Victim); // ✅ 사망 처리
+			}
+		}
+	}
+}
+
+void AInGamePlayerState::AddCapturedTime()
+{
+	if (HasAuthority())
+	{
+		NumCapturedTimes++;
+		UE_LOG(LogTemp, Log, TEXT("[Stats] %s captured times: %d"), *GetPlayerName(), NumCapturedTimes);
+	}
+}
+
+void AInGamePlayerState::AddKillerCapture()
+{
+	if (HasAuthority())
+	{
+		NumCaptured++;
+	}
+}
+
+void AInGamePlayerState::AddKillerKill()
+{
+	if (HasAuthority())
+	{
+		NumKilled++;
+	}
+}
 
 /* -------------------- Replication -------------------- */
 void AInGamePlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -115,4 +197,15 @@ void AInGamePlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 	DOREPLIFETIME(AInGamePlayerState, bIsReady);
 	DOREPLIFETIME(AInGamePlayerState, bIsKiller);
 	DOREPLIFETIME(AInGamePlayerState, SurvivorState);
+
+	// 🔹 통계 데이터 복제
+	DOREPLIFETIME(AInGamePlayerState, TotalPlayTime);
+	
+	DOREPLIFETIME(AInGamePlayerState, NumCaptured);
+	DOREPLIFETIME(AInGamePlayerState, NumKilled);
+	
+	DOREPLIFETIME(AInGamePlayerState, NumGeneratorsRepaired);
+	DOREPLIFETIME(AInGamePlayerState, NumChestsBroken);
+	DOREPLIFETIME(AInGamePlayerState, NumPrisonsUnlocked);
+	DOREPLIFETIME(AInGamePlayerState, NumCapturedTimes);
 }

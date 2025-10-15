@@ -1,4 +1,4 @@
-#pragma once
+/*#pragma once
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
@@ -16,19 +16,19 @@ public:
 
 protected:
 	/** Host 버튼 (맵을 Listen 서버로 열기) */
-	UPROPERTY(meta = (BindWidget))
+/*	UPROPERTY(meta = (BindWidget))
 	UButton* HostButton;
 
 	/** Join 버튼 (추후 세션 참가용으로 확장 가능) */
-	UPROPERTY(meta = (BindWidgetOptional))
-	UButton* JoinButton;
+//	UPROPERTY(meta = (BindWidgetOptional))
+//	UButton* JoinButton;
 
-private:
+//private:
 	/** Host 버튼 클릭 시 실행 */
-	UFUNCTION()
-	void OnHostClicked();
+//	UFUNCTION()
+//	void OnHostClicked();
 
 	/** Join 버튼 클릭 시 실행 (원할 경우 구현) */
-	UFUNCTION()
-	void OnJoinClicked();
-};
+//	UFUNCTION()
+//	void OnJoinClicked();
+//};
