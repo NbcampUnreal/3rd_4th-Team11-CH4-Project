@@ -22,9 +22,18 @@
   - 기본 구성: UE5 전용서버 바이너리 실행 → EC2 보안 그룹에서 게임 포트/Query 포트 허용
 
 ---
-## 시연 영상
 
-> 추후 유튜브 링크 추가 예정
+<h2>시연 영상</h2>
+
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=TEbF3lA0oSU" target="_blank">
+    <img src="https://img.youtube.com/vi/TEbF3lA0oSU/maxresdefault.jpg"
+         alt="The Eleventh Hour – Demo Video"
+         width="720" />
+  </a>
+  <br />
+  <sub>이미지를 클릭하면 YouTube로 이동합니다.</sub>
+</div>
 
 ---
 
@@ -103,9 +112,9 @@
 
 | 이름   | 파트                     | 링크                         |
 |-------|--------------------------|------------------------------|
-| 김선우 | 생존자 로직 & 기믹 일부  | [생존자 클래스 다이어 그램](https://www.notion.so/28d345149799802a83c3f5ca4a3bb49f?source=copy_link) |
+| 김선우 | 생존자 로직 & 기믹 일부  | [생존자 클래스 구조도](https://www.notion.so/28d345149799802a83c3f5ca4a3bb49f?source=copy_link) |
 | 이서호 | 아이템 시스템 & README   | [아이템 클래스 다이어 그램](https://github.com/dltjgh17/Unreal_TIL/tree/main/October/10.14) |
-| 서윤성 | GameMode / 네트워크 틀   | -                            |
+| 서윤성 | GameMode / 네트워크 틀   | [서버, 게임모드 구조도](https://yoonsung.tistory.com/55) |
 | 정윤호 | 살인마 & 근접 공격       | [기술 정리](https://hakunamatata0930.tistory.com/63) |
 | 이정국 | UI / HUD                | [Velog 글](https://velog.io/@palebluedot_/...Team-Project) |
 | 허중영 | 맵 디자인                | [Tistory 글](https://gamergo.tistory.com/63) |
