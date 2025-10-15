@@ -101,14 +101,14 @@
 
 **파트별 클래스 설계**
 
-| 이름   | 파트 | 링크 |
-|-------|------|------|
-| 김선우 | 생존자 로직 & 기믹 일부 |  |
-| 이서호 | 아이템 시스템 & README | https://github.com/dltjgh17/Unreal_TIL/tree/main/October/10.14 |
-| 서윤성 | GameMode / GameState / 네트워크 틀 |  |
-| 정윤호 | 살인마 캐릭터 & 근접 공격 | https://hakunamatata0930.tistory.com/63 |
-| 이정국 | UI / HUD | https://velog.io/@palebluedot_/%ED%81%B4%EB%9E%98%EC%8A%A4-%EB%8B%A4%EC%9D%B4%EC%96%B4%EA%B7%B8%EB%9E%A8Chapter-4-Team-Project |
-| 허중영 | 맵 디자인 |  |
+| 이름   | 파트                     | 링크                         |
+|-------|--------------------------|------------------------------|
+| 김선우 | 생존자 로직 & 기믹 일부  | -                            |
+| 이서호 | 아이템 시스템 & README   | [아이템 클래스 다이어 그램](https://github.com/dltjgh17/Unreal_TIL/tree/main/October/10.14) |
+| 서윤성 | GameMode / 네트워크 틀   | -                            |
+| 정윤호 | 살인마 & 근접 공격       | [기술 정리](https://hakunamatata0930.tistory.com/63) |
+| 이정국 | UI / HUD                | [Velog 글](https://velog.io/@palebluedot_/...Team-Project) |
+| 허중영 | 맵 디자인                | -     
 ---
 
 ## 프로젝트 구조
