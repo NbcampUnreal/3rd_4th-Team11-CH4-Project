@@ -26,7 +26,7 @@ void UInGameHUDWidget::UpdateHUD(int32 RemainingTime, int32 GeneratorsRepaired, 
 	// --- 매치 타이머 업데이트 ---
 	if (MatchTimer)
 	{
-		MatchTimer->UpdateTimer(RemainingTime);
+		MatchTimer->UpdateTimer(RemainingTime, bExitOpened);
 	}
 
 	// --- 매치 상태(발전기, 출구) 업데이트 ---

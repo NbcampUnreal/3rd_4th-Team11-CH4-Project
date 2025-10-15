@@ -181,7 +181,11 @@ void AInGameGameMode::CountdownTick()
 		GetWorld()->GetTimerManager().ClearTimer(CountdownTimer);
 		ReplaceKillerPawn();
 		StartMatchTimer();
+<<<<<<< Updated upstream
 		// 정국님 여기서 Killer UI 관리하시면 됩니다 !!
+=======
+		// input player icon 
+>>>>>>> Stashed changes
 		UE_LOG(LogTemp, Log, TEXT("[InGameGM] Countdown finished. Match begins."));
 	}
 	CountdownTime--;

@@ -1,35 +1,66 @@
-#include "MatchTimerWidget.h"
+ï»¿#include "MatchTimerWidget.h"
 #include "Components/Image.h"
-#include "Materials/MaterialInstanceDynamic.h"
+#include "Components/ProgressBar.h"
+#include "Components/TextBlock.h"
 #include "GameMode/GameState/InGameGameState.h"
 
 void UMatchTimerWidget::NativeConstruct()
 {
     Super::NativeConstruct();
 
-    if (TimerImage)
-    {
-        // µ¿Àû ¸ÓÆ¼¸®¾ó ÀÎ½ºÅÏ½º(MID) »ı¼º
-        TimerMID = TimerImage->GetDynamicMaterial();
-    }
+    if (TextBlock_Countdown) { TextBlock_Countdown->SetVisibility(ESlateVisibility::Hidden); }
 
+    // ìœ„ì ¯ì´ ìƒì„±ë  ë•Œ, í˜„ì¬ ì›”ë“œì˜ GameStateë¥¼ ê°€ì ¸ì˜µë‹ˆë‹¤.
     if (AInGameGameState* GS = GetWorld()->GetGameState<AInGameGameState>())
     {
-        // GameStateÀÇ RemainingTime ÃÊ±â°ªÀÌ ÃÖ´ë ½Ã°£ÀÔ´Ï´Ù.
+        // GameStateì— ì„¤ì •ëœ ì´ˆê¸° ë‚¨ì€ ì‹œê°„ ê°’ì„ MaxTime ë³€ìˆ˜ì— ì €ì¥í•©ë‹ˆë‹¤.
         MaxTime = GS->RemainingTime;
     }
-
 }
 
-void UMatchTimerWidget::UpdateTimer(int32 Time)
-{
-    // MID°¡ À¯È¿ÇÑÁö È®ÀÎ
-    if (TimerMID)
-    {
-        // ³²Àº ½Ã°£(Time)À» ÀüÃ¼ ½Ã°£(MaxTime)À¸·Î ³ª´©¾î 0~1 »çÀÌÀÇ ºñÀ²(Percent)À» °è»ê
-        const float PercentValue = FMath::Clamp(static_cast<float>(Time) / MaxTime, 0.0f, 1.0f);
 
-        // ¸ÓÆ¼¸®¾óÀÇ 'Percent'¶ó´Â ÀÌ¸§ÀÇ ½ºÄ®¶ó ÆÄ¶ó¹ÌÅÍ °ªÀ» ¹æ±İ °è»êÇÑ ºñÀ²·Î ¾÷µ¥ÀÌÆ®
-        TimerMID->SetScalarParameterValue(FName("Percent"), PercentValue);
+void UMatchTimerWidget::UpdateTimer(int32 RemainingTime, bool bExitOpened)
+{
+    if (!ProgressBar_Timer || !TextBlock_Countdown) return;
+
+    // 1. í¼ì„¼íŠ¸ ê³„ì‚° ë° í”„ë¡œê·¸ë ˆìŠ¤ ë°” ì—…ë°ì´íŠ¸
+    const float Percent = (MaxTime > 0) ? FMath::Clamp(static_cast<float>(RemainingTime) / MaxTime, 0.0f, 1.0f) : 0.0f;
+    ProgressBar_Timer->SetPercent(Percent);
+
+    // 2. ìƒ‰ìƒ ë° ì¹´ìš´íŠ¸ë‹¤ìš´ í…ìŠ¤íŠ¸ ì²˜ë¦¬
+    if (RemainingTime <= 60 || bExitOpened)
+    {
+        // 60ì´ˆ ì´í•˜ì´ê±°ë‚˜ ë¬¸ì´ ì—´ë¦¬ë©´: ë¹¨ê°„ìƒ‰ + ì¹´ìš´íŠ¸ë‹¤ìš´ í‘œì‹œ
+        ProgressBar_Timer->SetFillColorAndOpacity(FLinearColor::Red);
+        TextBlock_Countdown->SetVisibility(ESlateVisibility::HitTestInvisible);
+        TextBlock_Countdown->SetText(FText::AsNumber(RemainingTime));
+
+        // í„ìŠ¤ ì• ë‹ˆë©”ì´ì…˜ì´ ì¬ìƒ ì¤‘ì´ ì•„ë‹ˆë¼ë©´, ë°˜ë³µ ì¬ìƒ ì‹œì‘
+        if (PulseAnim && !IsAnimationPlaying(PulseAnim))
+        {
+            PlayAnimation(PulseAnim, 0.0f, 0); // 0 = ë¬´í•œ ë°˜ë³µ
+        }
+    }
+    else
+    {
+        // ê·¸ ì™¸ì˜ ê²½ìš°: ì¹´ìš´íŠ¸ë‹¤ìš´ ìˆ¨ê¸°ê³ , í¼ì„¼íŠ¸ì— ë”°ë¼ ìƒ‰ìƒ ë³€ê²½
+        TextBlock_Countdown->SetVisibility(ESlateVisibility::Hidden);
+        if (IsAnimationPlaying(PulseAnim))
+        {
+            StopAnimation(PulseAnim);
+        }
+
+        if (Percent > 0.66f)
+        {
+            ProgressBar_Timer->SetFillColorAndOpacity(FLinearColor::White);
+        }
+        else if (Percent > 0.33f)
+        {
+            ProgressBar_Timer->SetFillColorAndOpacity(FLinearColor::Yellow);
+        }
+        else
+        {
+            ProgressBar_Timer->SetFillColorAndOpacity(FLinearColor(1.0f, 0.5f, 0.0f)); // ì£¼í™©ìƒ‰
+        }
     }
 }
