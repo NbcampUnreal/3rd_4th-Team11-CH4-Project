@@ -108,7 +108,7 @@
 | 서윤성 | GameMode / 네트워크 틀   | -                            |
 | 정윤호 | 살인마 & 근접 공격       | [기술 정리](https://hakunamatata0930.tistory.com/63) |
 | 이정국 | UI / HUD                | [Velog 글](https://velog.io/@palebluedot_/...Team-Project) |
-| 허중영 | 맵 디자인                | -     
+| 허중영 | 맵 디자인                | [Tistory 글](https://gamergo.tistory.com/63) |
 ---
 
 ## 프로젝트 구조
