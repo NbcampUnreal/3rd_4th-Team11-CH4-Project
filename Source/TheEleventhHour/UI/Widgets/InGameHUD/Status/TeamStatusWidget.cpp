@@ -1,10 +1,10 @@
-#include "TeamStatusWidget.h"
+ï»¿#include "TeamStatusWidget.h"
 #include "UI/Widgets/InGameHUD/Status/PlayerStatusWidget.h"
 
 void UTeamStatusWidget::NativeConstruct()
 {
     Super::NativeConstruct();
-    // ¹è¿­¿¡ À§Á¬µéÀ» ´ã¾Æ ½±°Ô Á¢±ÙÇÒ ¼ö ÀÖµµ·Ï ÇÕ´Ï´Ù.
+    // ë°°ì—´ì— ìœ„ì ¯ë“¤ì„ ë‹´ì•„ ì‰½ê²Œ ì ‘ê·¼í•  ìˆ˜ ìˆë„ë¡ í•©ë‹ˆë‹¤.
     PlayerIconWidgets.Add(PlayerIcon_0);
     PlayerIconWidgets.Add(PlayerIcon_1);
     PlayerIconWidgets.Add(PlayerIcon_2);
@@ -14,23 +14,39 @@ void UTeamStatusWidget::NativeConstruct()
 
 void UTeamStatusWidget::UpdateTeammates(const TArray<AInGamePlayerState*>& PlayerStates)
 {
-    // 5°³ÀÇ ¾ÆÀÌÄÜ ½½·ÔÀ» ¸ğµÎ ¼øÈ¸ÇÕ´Ï´Ù.
+
+    TArray<AInGamePlayerState*> SurvivorPlayerStates;
+
+    for (AInGamePlayerState* PS : PlayerStates)
+    {
+        // PlayerStateê°€ ìœ íš¨í•˜ê³ , 'bIsKiller' ë³€ìˆ˜ê°€ falseì¸ (ì¦‰, ìƒì¡´ìì¸) ê²½ìš°ì—ë§Œ
+        if (PS && !PS->bIsKiller)
+        {
+            // ìƒì¡´ì ëª©ë¡ì— ì¶”ê°€í•©ë‹ˆë‹¤.
+            SurvivorPlayerStates.Add(PS);
+        }
+    }
+
+    // 5ê°œì˜ ì•„ì´ì½˜ ìŠ¬ë¡¯ì„ ëª¨ë‘ ìˆœíšŒí•©ë‹ˆë‹¤.
     for (int32 i = 0; i < PlayerIconWidgets.Num(); ++i)
     {
-        // i¹øÂ° ÇÃ·¹ÀÌ¾î°¡ Á¸ÀçÇÏ´ÂÁö È®ÀÎ
-        if (PlayerStates.IsValidIndex(i) && PlayerStates[i])
+        // ì „ì²´ PlayerStatesê°€ ì•„ë‹Œ, 'ìƒì¡´ìë§Œ í•„í„°ë§ëœ' SurvivorPlayerStates ëª©ë¡ì„ í™•ì¸í•©ë‹ˆë‹¤.
+        if (SurvivorPlayerStates.IsValidIndex(i))
         {
-            // ÇÃ·¹ÀÌ¾î°¡ Á¸ÀçÇÏ¸é, ¾ÆÀÌÄÜÀ» º¸ÀÌ°Ô ÇÏ°í »óÅÂ¿¡ µû¶ó ¾ÆÀÌÄÜÀ» ¾÷µ¥ÀÌÆ®ÇÕ´Ï´Ù.
-            AInGamePlayerState* CurrentPS = PlayerStates[i];
-            PlayerIconWidgets[i]->SetVisibility(ESlateVisibility::Visible);
-
-            // (PlayerStatusIconWidget¿¡ UpdateState(ESurvivorState State) ÇÔ¼ö°¡ ÀÖ´Ù°í °¡Á¤)
-            PlayerIconWidgets[i]->UpdateState(CurrentPS->SurvivorState, CurrentPS->GetPlayerName());
+            // ië²ˆì§¸ ìƒì¡´ìê°€ ì¡´ì¬í•˜ë©´, ì•„ì´ì½˜ì„ ë³´ì´ê²Œ í•˜ê³  í•´ë‹¹ ìƒì¡´ìì˜ ìƒíƒœë¡œ ì—…ë°ì´íŠ¸í•©ë‹ˆë‹¤.
+            AInGamePlayerState* CurrentSurvivorPS = SurvivorPlayerStates[i];
+            if (PlayerIconWidgets.IsValidIndex(i) && PlayerIconWidgets[i])
+            {
+                PlayerIconWidgets[i]->SetVisibility(ESlateVisibility::Visible);
+                PlayerIconWidgets[i]->UpdateState(CurrentSurvivorPS->SurvivorState, CurrentSurvivorPS->GetPlayerName());
+            }
         }
         else
         {
-            // i¹øÂ° ÇÃ·¹ÀÌ¾î°¡ Á¸ÀçÇÏÁö ¾ÊÀ¸¸é, ¾ÆÀÌÄÜ ÀÚ¸®¸¦ ºñ¿ö³õ½À´Ï´Ù (¼û±è).
-            PlayerIconWidgets[i]->SetVisibility(ESlateVisibility::Hidden);
+            if (PlayerIconWidgets.IsValidIndex(i) && PlayerIconWidgets[i])
+            {
+                PlayerIconWidgets[i]->SetVisibility(ESlateVisibility::Hidden);
+            }
         }
     }
 }

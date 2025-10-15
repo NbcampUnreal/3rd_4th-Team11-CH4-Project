@@ -11,7 +11,6 @@ UInventoryComponent::UInventoryComponent()
     PrimaryComponentTick.bCanEverTick = false;
     SetIsReplicatedByDefault(true);
     ConsumableSlots.Init(EItemType::None, 2);
-    UE_LOG(LogItem, Log, TEXT("[Inventory] Key slot + 2 consumables ready"));
 }
 
 void UInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -28,10 +27,10 @@ bool UInventoryComponent::AddItem(EItemType Item)
     switch (Item)
     {
     case EItemType::Key:
-        if (bHasKey) { UE_LOG(LogItem, Warning, TEXT("[Inventory] already has key")); return false; }
+        if (bHasKey) { return false; }
         bHasKey = true;
-        OnItemAdded.Broadcast(Item);  // 아이템 추가 이벤트
-        OnInventoryUpdated.Broadcast(); // 전체 갱신 이벤트
+        OnItemAdded.Broadcast(Item);  
+        OnInventoryUpdated.Broadcast(); 
         UE_LOG(LogItem, Log, TEXT("[Inventory] got KEY"));
         return true;
 

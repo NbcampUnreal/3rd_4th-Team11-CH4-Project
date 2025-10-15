@@ -4,6 +4,7 @@
 #include "GameFramework/Character.h"
 #include "Item/Chest/Chest.h"
 #include "Survivor/Character/AttributeComponent.h"
+#include "Item/Inventory/InventoryComponent.h"
 #include "EHSurvivorCharacter.generated.h"
 
 class UCameraComponent;
@@ -222,6 +223,9 @@ public:
 	void ServerRTryOpenDoorWithKey(class AMultiplayDoor* Door);
 	UFUNCTION(Server, Reliable)
 	void ServerUseConsumableSlot(int32 SlotIndex);
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Inventory")
+	UInventoryComponent* InventoryComp;
 
 protected:
 	UFUNCTION(Server,reliable)

@@ -68,17 +68,9 @@ bool AItemPickup::TryPickup(AActor* Other)
 			// UI용 이벤트 브로드 캐스트
 			OnItemPicked.Broadcast(ItemType);
 			
-			UE_LOG(LogItem, Log, TEXT("[Pickup] %s 획득"),
-				*UEnum::GetValueAsString(ItemType));
-
 			GetWorldTimerManager().ClearTimer(DespawnTimer);
-			
 			Destroy();
 			return true;
-		}
-		else
-		{
-			UE_LOG(LogItem, Warning, TEXT("[Pickup] 인벤토리 가득 → 미획득"));
 		}
 	}
 	return false;
@@ -94,7 +86,5 @@ void AItemPickup::OnOverlap(UPrimitiveComponent* Overlapped, AActor* Other,
 void AItemPickup::DespawnSelf()
 {
 	if (!HasAuthority()) return;
-	UE_LOG(LogItem, Log, TEXT("[Pickup] %s 일정 시간 미획득 → 자동 소멸"),
-	    *UEnum::GetValueAsString(ItemType));
 	Destroy();
 }
