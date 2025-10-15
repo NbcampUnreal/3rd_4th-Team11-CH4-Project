@@ -65,8 +65,6 @@ void AInGamePlayerState::ServerSetSurvivorState_Implementation(ESurvivorState Ne
 	// ✅ 감옥에 갇혔을 때 횟수 누적
 	if (HasAuthority() && NewState == ESurvivorState::Captured)
 	{
-		AddCapturedTime();
-
 		if (AInGameGameMode* GM = GetWorld()->GetAuthGameMode<AInGameGameMode>())
 		{
 			GM->SendToPrison(this);
@@ -79,12 +77,6 @@ void AInGamePlayerState::OnRep_SurvivorState()
 {
 	const FString StateName = StaticEnum<ESurvivorState>()->GetNameStringByValue((int64)SurvivorState);
 	UE_LOG(LogTemp, Warning, TEXT("[PS] %s SurvivorState -> %s"), *GetPlayerName(), *StateName);
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Cyan,
-			FString::Printf(TEXT("%s 상태: %s"), *GetPlayerName(), *StateName));
-	}
 
 	// ✅ 상태 변경 후 관전 모드 진입 처리
 	APlayerController* OwnerPC = Cast<APlayerController>(GetOwner());
@@ -146,11 +138,10 @@ void AInGamePlayerState::AddPrisonUnlocked()
 void AInGamePlayerState::AddSurvivorCaptured()
 {
 	if (!HasAuthority()) return;
-
-	NumCapturedTimes++;
+	
 	UE_LOG(LogTemp, Log, TEXT("[PS] %s captured (%d/3)"), *GetPlayerName(), NumCapturedTimes);
 
-	if (NumCapturedTimes >= 3)
+	if (NumCapturedTimes >= 1)
 	{
 		SurvivorState = ESurvivorState::Dead;
 

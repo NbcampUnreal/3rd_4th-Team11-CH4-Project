@@ -149,20 +149,28 @@ void AInGamePlayerController::ClientOnGameEnded_Implementation(const FString& En
 
 #pragma region Spectate System
 
+// 예시 (Controller)
 void AInGamePlayerController::ClientEnterSpectatorMode_Implementation()
 {
-	UnPossess();
+	if (bIsSpectatorMode) return;
+
+	UnPossess(); // Pawn 소유 해제
 	ChangeState(NAME_Spectating);
 
 	bIsSpectatorMode = true;
 
+	if (InGameHUDInstance)
+	{
+		InGameHUDInstance->RemoveFromParent();
+		InGameHUDInstance = nullptr;
+	}
+
+	SetInputMode(FInputModeGameOnly());
 	bShowMouseCursor = false;
-	FInputModeGameOnly Mode;
-	SetInputMode(Mode);
 
-	PickInitialSpectateTarget();
+	PickInitialSpectateTarget(); // 살아 있는 타겟으로 전환
 
-	UE_LOG(LogTemp, Warning, TEXT("[InGamePC] Entered Spectator Mode."));
+	UE_LOG(LogTemp, Warning, TEXT("[InGamePC] 관전자 모드 진입"));
 }
 
 void AInGamePlayerController::CollectAliveSpectateCandidates(TArray<AEHSurvivorCharacter*>& Out) const

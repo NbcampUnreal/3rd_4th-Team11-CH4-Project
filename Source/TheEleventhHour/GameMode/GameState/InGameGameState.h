@@ -29,15 +29,15 @@ public:
 	int32 LoadedPlayers = 0;
 
 	/** ✅ 남은 시간 (초 단위) — 11분(660초)에서 시작 */
-	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_RemainingTime)
+	UPROPERTY(BlueprintReadOnly, Replicated)
 	int32 RemainingTime = 660;
 
 	/** ✅ 발전기 수리 개수 (0 ~ 5) */
-	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_GeneratorsRepaired)
+	UPROPERTY(BlueprintReadOnly, Replicated)
 	int32 GeneratorsRepaired = 0;
 
 	/** ✅ 탈출구 열림 여부 */
-	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_bExitGateOpened)
+	UPROPERTY(BlueprintReadOnly, Replicated)
 	bool bExitGateOpened = false;
 
 	/** ✅ 게임 종료 여부 */
@@ -80,15 +80,6 @@ protected:
 
 	UFUNCTION()
 	void OnRep_LoadedPlayers();
-
-	UFUNCTION()
-	void OnRep_RemainingTime();
-
-	UFUNCTION()
-	void OnRep_GeneratorsRepaired();
-
-	UFUNCTION()
-	void OnRep_bExitGateOpened();
 
 	/* ===================== Net ===================== */
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

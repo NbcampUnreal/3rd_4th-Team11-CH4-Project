@@ -3,6 +3,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "GameMode/GameState/InGameGameState.h"
 #include "GameMode/PlayerState/InGamePlayerState.h"
+#include "GameMode/InGameGameMode.h"
 #include "Survivor/Character/EHSurvivorCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -35,7 +36,7 @@ void AEscapeZone::BeginPlay()
 {
 	Super::BeginPlay();
 
-	bEscapeEnabled = false; // 기본적으로 문 열리기 전엔 비활성화
+	bEscapeEnabled = false;
 	UE_LOG(LogTemp, Log, TEXT("[EscapeZone] Initialized. Waiting for door activation."));
 }
 
@@ -75,10 +76,11 @@ void AEscapeZone::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 	// ✅ 실제 탈출 처리
 	if (PS->SurvivorState != ESurvivorState::Escaped)
 	{
+		// 🔸 상태 갱신
 		PS->ServerSetSurvivorState(ESurvivorState::Escaped);
 		UE_LOG(LogTemp, Warning, TEXT("[EscapeZone] %s successfully escaped the game!"), *Survivor->GetName());
 
-		// 🔹 탈출 후 연출 (움직임 제한)
+		// 🔸 기존 기능 유지 (입력 제한, 움직임 정지)
 		Survivor->DisableInput(nullptr);
 		Survivor->GetCharacterMovement()->DisableMovement();
 
@@ -88,6 +90,16 @@ void AEscapeZone::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 				-1, 3.f, FColor::Green,
 				FString::Printf(TEXT("✅ %s ESCAPED!"), *Survivor->GetName())
 			);
+		}
+
+		// 🔹 GameMode에서 Pawn 제거 + 관전자 모드 진입 처리
+		if (AInGameGameMode* GM = Survivor->GetWorld()->GetAuthGameMode<AInGameGameMode>())
+		{
+			AController* PlayerController = Survivor->GetController();
+			if (PlayerController)
+			{
+				GM->HandlePlayerRemoved(PlayerController, TEXT("You escaped successfully!"));
+			}
 		}
 	}
 }

@@ -43,6 +43,9 @@ public:
 	/** 🔹 발전기 완성 시 호출 */
 	void CompletedRepair();
 
+	/** 플레이어 사망/탈출 시 Pawn 제거 및 관전자 처리 */
+	void HandlePlayerRemoved(AController* Controller, const FString& Reason);
+
 	UFUNCTION(BlueprintCallable, Category="Game|Survivor")
 	void OnSurvivorKilled(class AEHSurvivorCharacter* Victim);
 
@@ -87,7 +90,7 @@ protected:
 
 	// ---- 발전기 ----
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Game|Generators")
-	int32 TotalGeneratorCount = 5;  // 전체 발전기 수 (기본값 5)
+	int32 TotalGeneratorCount = 0;  // 전체 발전기 수 (기본값 5)
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="Game|Generators")
 	int32 RemainingGeneratorCount = 0;  // 현재 남은 발전기 수

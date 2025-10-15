@@ -291,8 +291,6 @@ void AInGameGameMode::NotifyRescueCompleted()
 void AInGameGameMode::EvaluateAllPlayerStates()
 {
 	CheckVictoryConditions();
-	if (GEngine)
-		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Yellow, TEXT("EvaluateAllPlayerStates()"));
 }
 
 /* -------------------- 승패 판정 -------------------- */
@@ -452,6 +450,41 @@ void AInGameGameMode::OnEscapeDoorOpened()
 	}
 }
 
+// ✅ Pawn 이동 + 입력 차단 + 관전 진입 (UI 유지)
+void AInGameGameMode::HandlePlayerRemoved(AController* Controller, const FString& Reason)
+{
+	if (!Controller) return;
+
+	APawn* ControlledPawn = Controller->GetPawn();
+	if (ControlledPawn)
+	{
+		Controller->UnPossess();
+
+		TArray<AActor*> SpawnPoints;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerStart::StaticClass(), SpawnPoints);
+
+		for (AActor* Actor : SpawnPoints)
+		{
+			if (APlayerStart* Start = Cast<APlayerStart>(Actor))
+			{
+				if (Start->PlayerStartTag == FName("Spawn.End"))
+				{
+					ControlledPawn->SetActorLocation(Start->GetActorLocation());
+					ControlledPawn->SetActorRotation(Start->GetActorRotation());
+					break;
+				}
+			}
+		}
+
+		ControlledPawn->DisableInput(nullptr); // 조작 불가 처리
+	}
+
+	if (AInGamePlayerController* PC = Cast<AInGamePlayerController>(Controller))
+	{
+		PC->ClientEnterSpectatorMode();
+	}
+}
+
 void AInGameGameMode::OnSurvivorKilled(AEHSurvivorCharacter* Victim)
 {
 	if (!HasAuthority() || !Victim) return;
@@ -486,11 +519,10 @@ void AInGameGameMode::OnSurvivorKilled(AEHSurvivorCharacter* Victim)
 	{
 		VictimPS->SurvivorState = ESurvivorState::Dead;
 		VictimPS->ForceNetUpdate();
-
-		UE_LOG(LogTemp, Warning, TEXT("[GameMode] %s is DEAD (Captured 3 times)."),
-			*VictimPS->GetPlayerName());
 	}
 
+	HandlePlayerRemoved(Victim->GetController(), TEXT("You were killed."));
+	
 	// 🔹 게임 상태 재평가 (승리 조건 확인)
 	EvaluateAllPlayerStates();
 	CheckVictoryConditions();
