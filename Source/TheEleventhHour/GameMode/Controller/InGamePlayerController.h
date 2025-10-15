@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "GameMode/PlayerState/InGamePlayerState.h"
 #include "InGamePlayerController.generated.h"
 
 class AInGameGameState;
@@ -24,13 +25,31 @@ public:
 	virtual void SetupInputComponent() override;
 	virtual void Tick(float DeltaSeconds) override;
 
+	UFUNCTION(Client, Reliable)
+	void Client_UpdateKillerHUD(bool bCanUseSkill, float RemainingCooldown, float TotalCooldown, float SkillDuration, float CurrentSprint, float MaxSprint);
+
 	/** ✅ 클라이언트 → 서버 : 로딩 완료 알림 */
 	UFUNCTION(Server, Reliable)
 	void ServerNotifyClientLoaded();
 
 	/** ✅ 클라이언트 : HUD 상태 갱신용 */
 	UFUNCTION(Client, Reliable)
-	void ClientUpdateHUDState(int32 RemainingTime, int32 GeneratorsRepaired, bool bExitOpened);
+	void ClientUpdateHUDState(
+		int32 RemainingTime, 
+		int32 GeneratorsRepaired, 
+		bool bExitOpened
+	);
+
+	// HUD 위젯에게 살인마의 원본 데이터를 직접 전달하는 RPC
+	UFUNCTION(Client, Reliable)
+	void Client_RelayMurdererRawDataToHUD(
+		bool bCanUseSkill,
+		float CurrentCooldown,
+		float MaxCooldown,
+		float SkillDuration, // InProgress 상태 계산을 위해 스킬 지속 시간도 넘겨줍니다.
+		float CurrentSprint,
+		float MaxSprint
+	);
 
 	/** ✅ 클라이언트 : 게임 종료 알림 */
 	UFUNCTION(Client, Reliable)

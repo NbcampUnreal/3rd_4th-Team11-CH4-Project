@@ -96,3 +96,12 @@ void UInGameHUDWidget::UpdateHUD(int32 RemainingTime, int32 GeneratorsRepaired, 
 	}
 
 }
+
+void UInGameHUDWidget::UpdateMurdererWidgets(bool bCanUseSkill, float RemainingCooldown, float TotalCooldown, float SkillDuration, float CurrentSprint, float MaxSprint)
+{
+	if (Skill)
+	{
+		Skill->UpdateSkill(bCanUseSkill, RemainingCooldown, TotalCooldown, SkillDuration);
+		Skill->UpdateSprint(CurrentSprint, MaxSprint);
+	}
+}
