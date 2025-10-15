@@ -13,6 +13,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 #include "Survivor/Character/EHSurvivorCharacter.h"
+#include "components/AudioComponent.h"
+#include "Map/BackgroundMusicActor.h"
 #include "Murderer/OutlineManager/SurvivorOutlineManager.h"
 
 // Sets default values
@@ -43,6 +45,11 @@ AMurdererCharacter::AMurdererCharacter()
 	Mesh1P -> SetupAttachment(PivotForMesh1P);
 	
 	DamageTypeClass = UDamageType::StaticClass();
+
+	// 추격 음악 컴포넌트 생성
+	ChaseMusicAudioComp = CreateDefaultSubobject<UAudioComponent>(TEXT("ChaseMusicAudio"));
+	ChaseMusicAudioComp->SetupAttachment(RootComponent);
+	ChaseMusicAudioComp->bAutoActivate = false;
 }
 
 void AMurdererCharacter::Tick(float DeltaSeconds)
@@ -61,6 +68,82 @@ void AMurdererCharacter::Tick(float DeltaSeconds)
 		GEngine->AddOnScreenDebugMessage(
 			668,1.0f,FColor::Green,FString::Printf(TEXT("RemainAttackCoolDown : %f"),RemainAttackCooldown));
 	}
+
+	//----------플레이어 추격 음악 로직-----------
+    if (!IsLocallyControlled() || !ChaseMusicAudioComp || !BGMActor) 
+        return;
+    
+    //가장 가까운 생존자 찾기
+    AEHSurvivorCharacter* ClosestSurvivor = nullptr;
+    float MinDistance = MAX_FLT;
+    
+    for (TActorIterator<AEHSurvivorCharacter> It(GetWorld()); It; ++It)
+    {
+        AEHSurvivorCharacter* Survivor = *It;
+        if (!Survivor || Survivor->bIsDead) continue;
+        
+        float Distance = FVector::Dist(Survivor->GetActorLocation(), GetActorLocation());
+        if (Distance < MinDistance)
+        {
+            MinDistance = Distance;
+            ClosestSurvivor = Survivor;
+        }
+    }
+    
+    //거리 기반 추격 음악 재생 제어
+    const float MaxRange = 4000.0f;
+    const float MinRange = 1500.0f;
+    
+    if (!ClosestSurvivor || MinDistance > MaxRange)
+    {
+        //놓치면 추격 음악 정지, BGM 원래 볼륨
+        if (ChaseMusicAudioComp->IsPlaying())
+        {
+            ChaseMusicAudioComp->Stop();
+        }
+        
+        if (BGMActor->AudioComponent)
+        {
+            BGMActor->AudioComponent->SetVolumeMultiplier(1.0f);
+        }
+        return;
+    }
+    
+    //범위 안에 있으면 추격 음악 재생 시작
+    if (!ChaseMusicAudioComp->IsPlaying())
+    {
+        ChaseMusicAudioComp->Play();
+    }
+    
+    //거리 기반 볼륨 계산
+    float ChaseVolume = FMath::GetMappedRangeValueClamped(
+        FVector2D(MaxRange, MinRange), 
+        FVector2D(0.0f, 1.f),  // 멀리 있으면 0, 가까우면 1.5
+        MinDistance
+    );
+    
+    //BGM 볼륨은 추격 음악과 반비례
+    float BGMVolume = FMath::GetMappedRangeValueClamped(
+        FVector2D(MaxRange, MinRange),
+        FVector2D(1.0f, 0.f),  // 멀리 있으면 1.0, 가까우면 0.1
+        MinDistance
+    );
+    
+    //피치 (생존자처럼 거리에 따라 변화)
+    float ChasePitch = FMath::GetMappedRangeValueClamped(
+        FVector2D(MaxRange, MinRange),
+        FVector2D(1.f, 1.f),
+        MinDistance
+    );
+    
+    ChaseMusicAudioComp->SetVolumeMultiplier(ChaseVolume);
+    ChaseMusicAudioComp->SetPitchMultiplier(ChasePitch);
+    
+    if (BGMActor->AudioComponent)
+    {
+        BGMActor->AudioComponent->SetVolumeMultiplier(BGMVolume);
+    }
+	//-------------------------------------------------------------
 }
 
 // Called when the game starts or when spawned
@@ -72,6 +155,19 @@ void AMurdererCharacter::BeginPlay()
 	for (TActorIterator<ASurvivorOutlineManager> It(GetWorld());It;++It)
 	{
 		OutlineManager=*It;
+	}
+
+	//BackgroundMusicActor 찾아서 캐싱
+	for (TActorIterator<ABackgroundMusicActor> It(GetWorld()); It; ++It)
+	{
+		BGMActor = *It;
+		break;
+	}
+    
+	//추격 음악 사운드 설정
+	if (ChaseMusic && ChaseMusicAudioComp)
+	{
+		ChaseMusicAudioComp->SetSound(ChaseMusic);
 	}
 }
 
