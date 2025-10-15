@@ -103,7 +103,7 @@
 
 | 이름   | 파트                     | 링크                         |
 |-------|--------------------------|------------------------------|
-| 김선우 | 생존자 로직 & 기믹 일부  | -                            |
+| 김선우 | 생존자 로직 & 기믹 일부  | - [생존자 클래스 다이어 그램](https://www.notion.so/28d345149799802a83c3f5ca4a3bb49f?source=copy_link) |
 | 이서호 | 아이템 시스템 & README   | [아이템 클래스 다이어 그램](https://github.com/dltjgh17/Unreal_TIL/tree/main/October/10.14) |
 | 서윤성 | GameMode / 네트워크 틀   | -                            |
 | 정윤호 | 살인마 & 근접 공격       | [기술 정리](https://hakunamatata0930.tistory.com/63) |
