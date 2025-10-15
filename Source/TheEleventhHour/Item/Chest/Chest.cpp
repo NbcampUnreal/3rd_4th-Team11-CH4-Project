@@ -118,8 +118,8 @@ float AChest::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
             if (AInGamePlayerState* PS = Survivor->GetPlayerState<AInGamePlayerState>())
             {
                 PS->AddChestBroken();
-                UE_LOG(LogTemp, Log, TEXT("[Chest] %s broke a chest (total: %d)"),
-                    *PS->GetPlayerName(), PS->NumChestsBroken);
+                //UE_LOG(LogTemp, Log, TEXT("[Chest] %s broke a chest (total: %d)"),
+                //    *PS->GetPlayerName(), PS->NumChestsBroken);
 
                 if (AInGameGameMode* GM = GetWorld()->GetAuthGameMode<AInGameGameMode>())
                 {
@@ -230,16 +230,13 @@ void AChest::MulticastPlayBreakSFX_Implementation()
 {
     if (BreakSFX)
     {
-        UE_LOG(LogItem, Log, TEXT("[Chest] 파괴음 멀티캐스트 호출: %s, 사운드=%s"),
-    HasAuthority() ? TEXT("서버") : TEXT("클라이언트"),
-    *BreakSFX->GetName());
-        
+        //UE_LOG(LogItem, Log, TEXT("[Chest] 파괴음 멀티캐스트 호출: %s, 사운드=%s"),HasAuthority() ? TEXT("서버") : TEXT("클라이언트"),*BreakSFX->GetName());
         UGameplayStatics::PlaySoundAtLocation(this, BreakSFX, GetActorLocation());
     }
     else
     {
-        UE_LOG(LogItem, Warning, TEXT("[Chest] 파괴음 멀티캐스트 호출: %s, 하지만 BreakSFX가 비어있음"),
-            HasAuthority() ? TEXT("서버") : TEXT("클라이언트"));
+        //UE_LOG(LogItem, Warning, TEXT("[Chest] 파괴음 멀티캐스트 호출: %s, 하지만 BreakSFX가 비어있음"),
+        //   HasAuthority() ? TEXT("서버") : TEXT("클라이언트"));
     }
 }
 void AChest::SnapToGround()
@@ -255,11 +252,11 @@ void AChest::SnapToGround()
     {
         const FVector NewLoc = Hit.ImpactPoint + FVector(0, 0, GroundSnapOffset);
         SetActorLocation(NewLoc, false, nullptr, ETeleportType::TeleportPhysics);
-        UE_LOG(LogItem, Log, TEXT("[Chest] 지면 스냅 적용: %s → Z=%.1f"), *GetName(), NewLoc.Z);
+        //UE_LOG(LogItem, Log, TEXT("[Chest] 지면 스냅 적용: %s → Z=%.1f"), *GetName(), NewLoc.Z);
     }
     else
     {
-        UE_LOG(LogItem, Warning, TEXT("[Chest] 지면 스냅 실패: %s (트레이스 미히트)"), *GetName());
+        //UE_LOG(LogItem, Warning, TEXT("[Chest] 지면 스냅 실패: %s (트레이스 미히트)"), *GetName());
     }
 }
 
@@ -270,5 +267,5 @@ void AChest::EnableCollisionDeferred()
     {
         HitBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
     }
-    UE_LOG(LogItem, Log, TEXT("[Chest] 충돌 재활성화"));
+    //UE_LOG(LogItem, Log, TEXT("[Chest] 충돌 재활성화"));
 }

@@ -20,7 +20,7 @@ void ASurvivorOutlineManager::BeginPlay()
 	
 	if (HasAuthority())
 	{
-		UE_LOG(LogTemp,Log,TEXT("SERVER SIDE"));
+		//UE_LOG(LogTemp,Log,TEXT("SERVER SIDE"));
 		return;
 	}
 	
@@ -43,7 +43,7 @@ void ASurvivorOutlineManager::AfterPossess()
 {
 	if (HasAuthority())
 	{
-		UE_LOG(LogTemp,Log,TEXT("SERVER SIDE"));
+		//UE_LOG(LogTemp,Log,TEXT("SERVER SIDE"));
 		return;
 	}
 

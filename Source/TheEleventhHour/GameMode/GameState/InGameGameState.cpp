@@ -27,8 +27,7 @@ void AInGameGameState::SetGeneratorsRepaired(int32 NewCount)
 	if (GeneratorsRepaired != NewCount)
 	{
 		GeneratorsRepaired = NewCount;
-		OnRep_GeneratorsRepaired();
-		UE_LOG(LogTemp, Log, TEXT("[GS] Generators updated: %d / 5"), GeneratorsRepaired);
+		//UE_LOG(LogTemp, Log, TEXT("[GS] Generators updated: %d / 5"), GeneratorsRepaired);
 	}
 }
 
@@ -40,8 +39,7 @@ void AInGameGameState::OpenExitGate()
 	if (!bExitGateOpened)
 	{
 		bExitGateOpened = true;
-		UE_LOG(LogTemp, Warning, TEXT("[GS] Exit gate opened! Survivors can escape."));
-		OnRep_bExitGateOpened();
+		//UE_LOG(LogTemp, Warning, TEXT("[GS] Exit gate opened! Survivors can escape."));
 	}
 }
 
@@ -54,8 +52,7 @@ void AInGameGameState::SetRemainingTime(int32 NewTime)
 
 	if (Old != RemainingTime)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[GS] Remaining time set to %d"), RemainingTime);
-		OnRep_RemainingTime();
+		//UE_LOG(LogTemp, Warning, TEXT("[GS] Remaining time set to %d"), RemainingTime);
 	}
 }
 
@@ -67,7 +64,7 @@ void AInGameGameState::EndGame(const FString& Reason)
 	{
 		bGameEnded = true;
 		EndReason = Reason;
-		UE_LOG(LogTemp, Warning, TEXT("[GS] Game Ended: %s"), *EndReason);
+		//UE_LOG(LogTemp, Warning, TEXT("[GS] Game Ended: %s"), *EndReason);
 		// 추가: 여기서 GM이 세션 정리/리턴 맵 이동을 트리거해도 됨
 	}
 }
@@ -84,42 +81,6 @@ void AInGameGameState::OnRep_LoadedPlayers()
 		UE_LOG(LogTemp, Log, TEXT("[GS] All players loaded! Broadcasting event."));
 		OnAllPlayersLoaded.Broadcast();
 	}
-}
-
-void AInGameGameState::OnRep_RemainingTime()
-{
-#if !(UE_BUILD_SHIPPING)
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(
-			-1, 1.0f, FColor::Yellow,
-			FString::Printf(TEXT("⏰ Remaining: %d s"), RemainingTime));
-	}
-#endif
-}
-
-void AInGameGameState::OnRep_GeneratorsRepaired()
-{
-#if !(UE_BUILD_SHIPPING)
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(
-			-1, 1.0f, FColor::Green,
-			FString::Printf(TEXT("⚙️ Generators: %d / 5"), GeneratorsRepaired));
-	}
-#endif
-}
-
-void AInGameGameState::OnRep_bExitGateOpened()
-{
-#if !(UE_BUILD_SHIPPING)
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(
-			-1, 1.5f, FColor::Cyan,
-			TEXT("🚪 Exit Gate OPENED!"));
-	}
-#endif
 }
 
 /* ===================== Net ===================== */

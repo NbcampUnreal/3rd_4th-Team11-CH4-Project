@@ -87,7 +87,7 @@ void APrisonManager::Capture(AEHSurvivorCharacter* Victim)
 			}
 		}
 		
-		UE_LOG(LogTemp, Warning, TEXT("[PrisonManager] %s captured and teleported."), *Victim->GetName());
+		//UE_LOG(LogTemp, Warning, TEXT("[PrisonManager] %s captured and teleported."), *Victim->GetName());
 	}
 }
 
@@ -120,7 +120,7 @@ void APrisonManager::OnEscapeOverlapBegin(
 		Survivor->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 		Survivor->EnableInput(nullptr);
 
-		UE_LOG(LogTemp, Warning, TEXT("[PrisonManager] %s escaped from prison → set to INJURED."), *Survivor->GetName());
+		//UE_LOG(LogTemp, Warning, TEXT("[PrisonManager] %s escaped from prison → set to INJURED."), *Survivor->GetName());
 	}
 }
 

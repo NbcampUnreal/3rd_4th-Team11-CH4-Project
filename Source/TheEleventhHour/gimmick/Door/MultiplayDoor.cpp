@@ -92,10 +92,6 @@ void AMultiplayDoor::CloseDoor()
       // ✅ 감옥에 아직 포획된 생존자들을 Escape로 이동
       PrisonManager->ForceMoveCapturedToEscape();
    }
-   else
-   {
-      UE_LOG(LogTemp, Warning, TEXT("[EscapeDoor] PrisonManager not found or not server."));
-   }
    
    if (DoorTimeLine)
    {

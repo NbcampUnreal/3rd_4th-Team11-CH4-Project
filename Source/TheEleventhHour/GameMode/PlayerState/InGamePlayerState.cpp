@@ -30,7 +30,7 @@ void AInGamePlayerState::ServerSetReady_Implementation(bool bNewReady)
 
 void AInGamePlayerState::OnRep_bIsReady()
 {
-	UE_LOG(LogTemp, Log, TEXT("[PS] %s Ready -> %d"), *GetPlayerName(), bIsReady);
+	//UE_LOG(LogTemp, Log, TEXT("[PS] %s Ready -> %d"), *GetPlayerName(), bIsReady);
 	UpdateGameStateReadyCount();
 }
 
@@ -47,9 +47,7 @@ void AInGamePlayerState::UpdateGameStateReadyCount()
 /* -------------------- Killer -------------------- */
 void AInGamePlayerState::OnRep_bIsKiller()
 {
-	UE_LOG(LogTemp, Log, TEXT("[PS] %s Role -> %s"),
-		*GetPlayerName(),
-		bIsKiller ? TEXT("KILLER") : TEXT("SURVIVOR"));
+	//UE_LOG(LogTemp, Log, TEXT("[PS] %s Role -> %s"),*GetPlayerName(),bIsKiller ? TEXT("KILLER") : TEXT("SURVIVOR"));
 }
 
 /* -------------------- Survivor 상태 -------------------- */
@@ -65,12 +63,10 @@ void AInGamePlayerState::ServerSetSurvivorState_Implementation(ESurvivorState Ne
 	// ✅ 감옥에 갇혔을 때 횟수 누적
 	if (HasAuthority() && NewState == ESurvivorState::Captured)
 	{
-		AddCapturedTime();
-
 		if (AInGameGameMode* GM = GetWorld()->GetAuthGameMode<AInGameGameMode>())
 		{
 			GM->SendToPrison(this);
-			UE_LOG(LogTemp, Warning, TEXT("[PS] %s has been captured → SendToPrison() called."), *GetPlayerName());
+			//UE_LOG(LogTemp, Warning, TEXT("[PS] %s has been captured → SendToPrison() called."), *GetPlayerName());
 		}
 	}
 }
@@ -78,13 +74,7 @@ void AInGamePlayerState::ServerSetSurvivorState_Implementation(ESurvivorState Ne
 void AInGamePlayerState::OnRep_SurvivorState()
 {
 	const FString StateName = StaticEnum<ESurvivorState>()->GetNameStringByValue((int64)SurvivorState);
-	UE_LOG(LogTemp, Warning, TEXT("[PS] %s SurvivorState -> %s"), *GetPlayerName(), *StateName);
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Cyan,
-			FString::Printf(TEXT("%s 상태: %s"), *GetPlayerName(), *StateName));
-	}
+	//UE_LOG(LogTemp, Warning, TEXT("[PS] %s SurvivorState -> %s"), *GetPlayerName(), *StateName);
 
 	// ✅ 상태 변경 후 관전 모드 진입 처리
 	APlayerController* OwnerPC = Cast<APlayerController>(GetOwner());
@@ -98,7 +88,7 @@ void AInGamePlayerState::OnRep_SurvivorState()
 		{
 			if (AInGamePlayerController* InGamePC = Cast<AInGamePlayerController>(OwnerPC))
 			{
-				UE_LOG(LogTemp, Warning, TEXT("[PS] %s -> Spectator Mode 진입"), *GetPlayerName());
+				//UE_LOG(LogTemp, Warning, TEXT("[PS] %s -> Spectator Mode 진입"), *GetPlayerName());
 				InGamePC->ClientEnterSpectatorMode();
 			}
 		}
@@ -123,7 +113,7 @@ void AInGamePlayerState::AddGeneratorRepair()
 	if (HasAuthority())
 	{
 		NumGeneratorsRepaired++;
-		UE_LOG(LogTemp, Log, TEXT("[Stats] %s repaired generator (%d)"), *GetPlayerName(), NumGeneratorsRepaired);
+		//UE_LOG(LogTemp, Log, TEXT("[Stats] %s repaired generator (%d)"), *GetPlayerName(), NumGeneratorsRepaired);
 	}
 }
 
@@ -146,11 +136,10 @@ void AInGamePlayerState::AddPrisonUnlocked()
 void AInGamePlayerState::AddSurvivorCaptured()
 {
 	if (!HasAuthority()) return;
+	
+	//UE_LOG(LogTemp, Log, TEXT("[PS] %s captured (%d/3)"), *GetPlayerName(), NumCapturedTimes);
 
-	NumCapturedTimes++;
-	UE_LOG(LogTemp, Log, TEXT("[PS] %s captured (%d/3)"), *GetPlayerName(), NumCapturedTimes);
-
-	if (NumCapturedTimes >= 3)
+	if (NumCapturedTimes >= 1)
 	{
 		SurvivorState = ESurvivorState::Dead;
 
@@ -169,7 +158,7 @@ void AInGamePlayerState::AddCapturedTime()
 	if (HasAuthority())
 	{
 		NumCapturedTimes++;
-		UE_LOG(LogTemp, Log, TEXT("[Stats] %s captured times: %d"), *GetPlayerName(), NumCapturedTimes);
+		//UE_LOG(LogTemp, Log, TEXT("[Stats] %s captured times: %d"), *GetPlayerName(), NumCapturedTimes);
 	}
 }
 

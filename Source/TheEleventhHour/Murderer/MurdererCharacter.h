@@ -112,6 +112,15 @@ protected:
 	UFUNCTION(Server,Reliable)
 	void EndSprint();
 	
+public:
+	float GetSprintGauge() const { return SprintGauge; }
+	float GetMaxSprintGauge() const { return MaxSprintGauge; }
+	float GetRemainSkill1Cooldown() const { return RemainSkill1Cooldown; }
+	float GetSkill1CooldownDuration() const { return Skill1CooldownDuration; }
+	float GetSkill1Duration() const { return Skill1Duration; }
+	bool GetbCanSkill1Use() const { return bCanSkill1Use; }
+
+protected:
 	//상태 변수, 속성 변수
 	UPROPERTY(VisibleAnywhere,BlueprintReadOnly, Category="Variables")
 	float BaseSpeed;

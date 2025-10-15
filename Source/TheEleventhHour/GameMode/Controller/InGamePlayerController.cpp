@@ -2,10 +2,12 @@
 #include "GameMode/GameState/InGameGameState.h"
 #include "GameMode/PlayerState/InGamePlayerState.h"
 #include "Survivor/Character/EHSurvivorCharacter.h"
+#include "Murderer/MurdererCharacter.h"
 #include "UI/Widgets/InGameHUD/Core/InGameHUDWidget.h"
 #include "UI/Widgets/ResultScreen/ResultScreenWidget.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
+#include "UI/Widgets/InGameHUD/SKill/SkillWidget.h"
 
 AInGamePlayerController::AInGamePlayerController()
 {
@@ -33,12 +35,21 @@ void AInGamePlayerController::BeginPlay()
 
 		GetWorld()->GetTimerManager().SetTimer(
 			HUDSyncTimer, this, &AInGamePlayerController::SyncHUD, 1.0f, true, 2.0f);
+	}
 
-		bShowMouseCursor = false;
-		bEnableClickEvents = false;
-		bEnableMouseOverEvents = false;
+	bShowMouseCursor = false;
+	bEnableClickEvents = false;
+	bEnableMouseOverEvents = false;
 
-		SetInputMode(FInputModeGameOnly());
+	SetInputMode(FInputModeGameOnly());
+}
+
+void AInGamePlayerController::Client_UpdateKillerHUD_Implementation(bool bCanUseSkill, float RemainingCooldown, float TotalCooldown, float SkillDuration, float CurrentSprint, float MaxSprint)
+{
+	if (InGameHUDInstance)
+	{
+		// InGameHUDWidget에 있는 살인마 전용 업데이트 함수를 호출합니다.
+		InGameHUDInstance->UpdateMurdererWidgets(bCanUseSkill, RemainingCooldown, TotalCooldown, SkillDuration, CurrentSprint, MaxSprint);
 	}
 }
 
@@ -99,6 +110,21 @@ void AInGamePlayerController::SyncHUD()
 		CachedGameState->GeneratorsRepaired,
 		CachedGameState->bExitGateOpened
 	);
+
+	// 현재 조종하는 Pawn이 살인마인지 확인
+	if (AMurdererCharacter* Murderer = Cast<AMurdererCharacter>(GetPawn()))
+	{
+		// 2. 살인마의 C++ 변수 값들을 직접 읽습니다.
+		bool bCanUse = Murderer->GetbCanSkill1Use();
+		float RemainingCD = Murderer->GetRemainSkill1Cooldown();
+		float TotalCD = Murderer->GetSkill1CooldownDuration();
+		float Duration = Murderer->GetSkill1Duration();
+		float CurrentSprint = Murderer->GetSprintGauge();
+		float MaxSprint = Murderer->GetMaxSprintGauge();
+
+		// 3. 읽은 값들을 클라이언트 RPC로 그냥 '쏴줍니다'.
+		Client_RelayMurdererRawDataToHUD(bCanUse, RemainingCD, TotalCD, Duration, CurrentSprint, MaxSprint);
+	}
 }
 
 void AInGamePlayerController::ClientUpdateHUDState_Implementation(int32 RemainingTime, int32 GeneratorsRepaired, bool bExitOpened)
@@ -122,8 +148,22 @@ void AInGamePlayerController::ClientOnGameEnded_Implementation(const FString& En
 		UResultScreenWidget* ResultWidget = CreateWidget<UResultScreenWidget>(this, ResultScreenWidgetClass);
 		if (ResultWidget)
 		{
-			ResultWidget->SetResultText(EndReason);
+			if (AInGameGameState* GS = GetWorld()->GetGameState<AInGameGameState>())
+			{
+				TArray<AInGamePlayerState*> AllPlayerStates;
+				for (APlayerState* PS : GS->PlayerArray)
+				{
+					if (AInGamePlayerState* InGamePS = Cast<AInGamePlayerState>(PS))
+					{
+						AllPlayerStates.Add(InGamePS);
+					}
+				}
+				ResultWidget->PopulateResults(AllPlayerStates);
+			}
 			ResultWidget->AddToViewport();
+
+			
+			UGameplayStatics::SetGamePaused(GetWorld(), true);
 
 			FInputModeUIOnly InputMode;
 			InputMode.SetWidgetToFocus(ResultWidget->TakeWidget());
@@ -135,20 +175,28 @@ void AInGamePlayerController::ClientOnGameEnded_Implementation(const FString& En
 
 #pragma region Spectate System
 
+// 예시 (Controller)
 void AInGamePlayerController::ClientEnterSpectatorMode_Implementation()
 {
-	UnPossess();
+	if (bIsSpectatorMode) return;
+
+	UnPossess(); // Pawn 소유 해제
 	ChangeState(NAME_Spectating);
 
 	bIsSpectatorMode = true;
 
+	if (InGameHUDInstance)
+	{
+		InGameHUDInstance->RemoveFromParent();
+		InGameHUDInstance = nullptr;
+	}
+
+	SetInputMode(FInputModeGameOnly());
 	bShowMouseCursor = false;
-	FInputModeGameOnly Mode;
-	SetInputMode(Mode);
 
-	PickInitialSpectateTarget();
+	PickInitialSpectateTarget(); // 살아 있는 타겟으로 전환
 
-	UE_LOG(LogTemp, Warning, TEXT("[InGamePC] Entered Spectator Mode."));
+	//UE_LOG(LogTemp, Warning, TEXT("[InGamePC] 관전자 모드 진입"));
 }
 
 void AInGamePlayerController::CollectAliveSpectateCandidates(TArray<AEHSurvivorCharacter*>& Out) const
@@ -227,4 +275,32 @@ void AInGamePlayerController::ClientUpdateSpectateUI_Implementation(const FStrin
 	}
 }
 
-#pragma endregion
+void AInGamePlayerController::Client_InitializeRoleHUD_Implementation()
+{
+	// 이 컨트롤러가 소유한 PlayerState와 HUD 위젯이 모두 유효한지 확인합니다.
+	if (InGameHUDInstance)
+	{
+		if (AInGamePlayerState* InGamePS = GetPlayerState<AInGamePlayerState>())
+		{
+			// HUD 위젯의 역할 설정 함수를 호출하고, 자신의 역할(bIsKiller)을 전달합니다.
+			InGameHUDInstance->SetRoleSpecificVisibility(InGamePS->bIsKiller);
+		}
+	}
+}
+
+void AInGamePlayerController::Client_RelayMurdererRawDataToHUD_Implementation(
+	bool bCanUseSkill,
+	float CurrentCooldown,
+	float MaxCooldown,
+	float SkillDuration,
+	float CurrentSprint,
+	float MaxSprint)
+{
+	// 4. 이전에 화면에 생성해둔 InGameHUDWidget를 가져옵니다.
+	if (InGameHUDInstance)
+	{
+		// 5. HUD 위젯에 있는 함수를 호출해서 데이터를 그대로 넘겨줍니다.
+		// 이 함수는 알아서 SkillWidget의 UpdateSkill/UpdateSprint를 호출할 겁니다.
+		InGameHUDInstance->UpdateMurdererWidgets(bCanUseSkill, CurrentCooldown, MaxCooldown, SkillDuration, CurrentSprint, MaxSprint);
+	}
+}

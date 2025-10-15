@@ -115,7 +115,7 @@ void AEHSurvivorCharacter::BeginPlay()
 				}
 				else
 				{
-					UE_LOG(LogTemp, Warning, TEXT("EnhancedInputLocalPlayerSubsystem is NULL (client only)."));
+					//UE_LOG(LogTemp, Warning, TEXT("EnhancedInputLocalPlayerSubsystem is NULL (client only)."));
 				}
 			}
 		}
@@ -221,20 +221,20 @@ float AEHSurvivorCharacter::TakeDamage(
 		{
 			PS->ServerSetSurvivorState(ESurvivorState::Injured);
 			MulticastHitMontage();
-			UE_LOG(LogTemp, Log, TEXT("[Survivor] %s → Injured"), *GetName());
+			//UE_LOG(LogTemp, Log, TEXT("[Survivor] %s → Injured"), *GetName());
 			break;
 		}
 	case ESurvivorState::Injured:
 		{
 			PS->ServerSetSurvivorState(ESurvivorState::Captured);
 			MulticastDeathMontage();
-			UE_LOG(LogTemp, Log, TEXT("[Survivor] %s → Captured"), *GetName());
+			//UE_LOG(LogTemp, Log, TEXT("[Survivor] %s → Captured"), *GetName());
 			break;
 		}
 	case ESurvivorState::Captured:
 		{
 			// 이미 감옥에 있음 → 무시
-			UE_LOG(LogTemp, Log, TEXT("[Survivor] %s already captured, ignoring damage"), *GetName());
+			//UE_LOG(LogTemp, Log, TEXT("[Survivor] %s already captured, ignoring damage"), *GetName());
 			break;
 		}
 	case ESurvivorState::Dead:
@@ -242,7 +242,7 @@ float AEHSurvivorCharacter::TakeDamage(
 	default:
 		{
 			// 사망 또는 탈출 상태에서는 무시
-			UE_LOG(LogTemp, Log, TEXT("[Survivor] %s cannot take damage in current state"), *GetName());
+			//UE_LOG(LogTemp, Log, TEXT("[Survivor] %s cannot take damage in current state"), *GetName());
 			break;
 		}
 	}
@@ -463,7 +463,7 @@ void AEHSurvivorCharacter::StartInteraction()
 		AActor* HitActor = HitResult.GetActor();
 		if (HitActor)
 		{
-			UE_LOG(LogTemp, Log, TEXT("%s"), *HitActor->GetName());
+			//UE_LOG(LogTemp, Log, TEXT("%s"), *HitActor->GetName());
 
 			if (AMultiplayDoor* Door = Cast<AMultiplayDoor>(HitActor))
 			{
@@ -476,9 +476,7 @@ void AEHSurvivorCharacter::StartInteraction()
 					if (PS->SurvivorState != ESurvivorState::Alive && 
 						PS->SurvivorState != ESurvivorState::Injured)
 					{
-						UE_LOG(LogTemp, Warning, TEXT("[Door] %s cannot open prison door (state: %s)"),
-							*PS->GetPlayerName(),
-							*UEnum::GetValueAsString(PS->SurvivorState));
+						//UE_LOG(LogTemp, Warning, TEXT("[Door] %s cannot open prison door (state: %s)"),*PS->GetPlayerName(),*UEnum::GetValueAsString(PS->SurvivorState));
 						return; // ✅ 상태 제한
 					}
 				}
@@ -493,13 +491,13 @@ void AEHSurvivorCharacter::StartInteraction()
 					if (AInGamePlayerState* PS = GetPlayerState<AInGamePlayerState>())
 						{
 							PS->AddPrisonUnlocked();
-							UE_LOG(LogTemp, Log, TEXT("[Door] %s unlocked a prison (total: %d)"),
-								*PS->GetPlayerName(), PS->NumPrisonsUnlocked);
+							//UE_LOG(LogTemp, Log, TEXT("[Door] %s unlocked a prison (total: %d)"),
+								//*PS->GetPlayerName(), PS->NumPrisonsUnlocked);
 						}
 				}
 				else
 				{
-					UE_LOG(LogTemp, Warning, TEXT("열쇠가 없어 문을 열 수 없습니다."));
+					//UE_LOG(LogTemp, Warning, TEXT("열쇠가 없어 문을 열 수 없습니다."));
 				}
 				return;
 				
@@ -530,7 +528,7 @@ void AEHSurvivorCharacter::StartInteraction()
 	}
 	else
 	{
-		UE_LOG(LogTemp,Log,TEXT("LineTraceMiss"));
+		//UE_LOG(LogTemp,Log,TEXT("LineTraceMiss"));
 	}
 }
 
@@ -593,12 +591,12 @@ void AEHSurvivorCharacter::ServerRPCCancelInteract_Implementation()
 	if (AGenerators* Generator = Cast<AGenerators>(InteractActor))
 	{
 		Generator->CancelRepair(this);
-		UE_LOG(LogTemp, Log, TEXT("Generator Cancel"));
+		//UE_LOG(LogTemp, Log, TEXT("Generator Cancel"));
 	}
 	if (AMultiKeypad* Keypad = Cast<AMultiKeypad>(InteractActor))
 	{
 		Keypad->StopProgress(this);
-		UE_LOG(LogTemp, Log, TEXT("Keypad Cancel"));
+		//UE_LOG(LogTemp, Log, TEXT("Keypad Cancel"));
 	}
 	InteractActor = nullptr;
 	bIsInteracting = false;
@@ -616,13 +614,13 @@ void AEHSurvivorCharacter::OnRep_SetInteractUI()
 {
 	if (InteractActor && InteractProgressWidget)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("InteractUI AddToViewport!"));
+		//UE_LOG(LogTemp, Warning, TEXT("InteractUI AddToViewport!"));
 		InteractProgressWidget->AddToViewport();
 		GetWorldTimerManager().SetTimer(InteractUIUpdateTimerHandle,this,&AEHSurvivorCharacter::UpdateProgressUI,0.2f,true);
 	}
 	if (!InteractActor && InteractProgressWidget)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("InteractUI Remove!"));
+		//UE_LOG(LogTemp, Warning, TEXT("InteractUI Remove!"));
 		InteractProgressWidget->RemoveFromParent();
 		GetWorldTimerManager().ClearTimer(InteractUIUpdateTimerHandle);
 	}
@@ -773,12 +771,12 @@ void AEHSurvivorCharacter::Debug_PrintHealth() const
 	const float Cur = AttributeComp->GetHealth();
 	const float Max = AttributeComp->MaxHealth;
 
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(
-			/*Key*/ -1, /*Time*/ 1.5f, FColor::Yellow,
-			FString::Printf(TEXT("[HP] %.0f / %.0f"), Cur, Max));
-	}
+	//if (GEngine)
+	//{
+	//	GEngine->AddOnScreenDebugMessage(
+	//		/*Key*/ -1, /*Time*/ 1.5f, FColor::Yellow,
+	//		FString::Printf(TEXT("[HP] %.0f / %.0f"), Cur, Max));
+	//}
 }
 void AEHSurvivorCharacter::UseSlot0()
 {
@@ -809,7 +807,7 @@ void AEHSurvivorCharacter::ServerUseConsumableSlot_Implementation(int32 SlotInde
 		const bool bOk = InventoryComp->UseItemBySlot(SlotIndex);
 		if (!bOk)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[Use] slot %d 사용 실패(빈 슬롯/조건 불만족)"), SlotIndex);
+			//UE_LOG(LogTemp, Warning, TEXT("[Use] slot %d 사용 실패(빈 슬롯/조건 불만족)"), SlotIndex);
 		}
 	}
 }

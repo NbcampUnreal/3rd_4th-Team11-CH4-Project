@@ -14,6 +14,8 @@
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameMode/Controller/InGamePlayerController.h"
+#include "UI/Widgets/InGameHUD/Core/InGameHUDWidget.h"
 
 AInGameGameMode::AInGameGameMode()
 	: PrisonManager(nullptr)
@@ -41,7 +43,7 @@ void AInGameGameMode::BeginPlay()
 		{
 			GS->ExpectedPlayers = GameState->PlayerArray.Num();
 			GS->OnAllPlayersLoaded.AddDynamic(this, &AInGameGameMode::OnAllPlayersLoaded);
-			UE_LOG(LogTemp, Log, TEXT("[InGameGM] BeginPlay - ExpectedPlayers = %d"), GS->ExpectedPlayers);
+			//UE_LOG(LogTemp, Log, TEXT("[InGameGM] BeginPlay - ExpectedPlayers = %d"), GS->ExpectedPlayers);
 		}
 	}
 
@@ -53,7 +55,7 @@ void AInGameGameMode::BeginPlay()
 	}
 	if (PrisonManager)
 	{
-		UE_LOG(LogTemp, Log, TEXT("[InGameGM] PrisonManager found: %s"), *PrisonManager->GetName());
+		//UE_LOG(LogTemp, Log, TEXT("[InGameGM] PrisonManager found: %s"), *PrisonManager->GetName());
 	}
 }
 
@@ -66,7 +68,7 @@ void AInGameGameMode::PostSeamlessTravel()
 	if (AInGameGameState* GS = GetGameState<AInGameGameState>())
 	{
 		GS->ExpectedPlayers = GameState->PlayerArray.Num();
-		UE_LOG(LogTemp, Log, TEXT("[InGameGM] PostSeamlessTravel - ExpectedPlayers = %d"), GS->ExpectedPlayers);
+		//UE_LOG(LogTemp, Log, TEXT("[InGameGM] PostSeamlessTravel - ExpectedPlayers = %d"), GS->ExpectedPlayers);
 	}
 }
 
@@ -113,13 +115,13 @@ AActor* AInGameGameMode::ChoosePlayerStart_Implementation(AController* Player)
 		APlayerStart* ChosenStart = PlayerTaggedStarts[Index];
 
 		UsedStarts.Add(ChosenStart); // 사용 처리
-		UE_LOG(LogTemp, Log, TEXT("[ChoosePlayerStart] Spawned at %s"), *ChosenStart->GetName());
+		//UE_LOG(LogTemp, Log, TEXT("[ChoosePlayerStart] Spawned at %s"), *ChosenStart->GetName());
 
 		return ChosenStart;
 	}
 
 	// 🚨 모든 Start가 이미 사용되었거나 없을 경우 — 마지막 선택 사용
-	UE_LOG(LogTemp, Warning, TEXT("[ChoosePlayerStart] All 'Spawn.Player' points used or missing! Using default."));
+	//UE_LOG(LogTemp, Warning, TEXT("[ChoosePlayerStart] All 'Spawn.Player' points used or missing! Using default."));
 	return Super::ChoosePlayerStart_Implementation(Player);
 }
 
@@ -132,7 +134,7 @@ void AInGameGameMode::TryStartMatchWhenAllLoaded()
 	if (GS->LoadedPlayers >= GS->ExpectedPlayers && GS->ExpectedPlayers > 0)
 	{
 		bMatchStarted = true;
-		UE_LOG(LogTemp, Log, TEXT("[InGameGM] All players loaded (%d/%d). Starting countdown."), GS->LoadedPlayers, GS->ExpectedPlayers);
+		//UE_LOG(LogTemp, Log, TEXT("[InGameGM] All players loaded (%d/%d). Starting countdown."), GS->LoadedPlayers, GS->ExpectedPlayers);
 		AssignRoles();
 		StartCountdown();
 	}
@@ -141,7 +143,7 @@ void AInGameGameMode::TryStartMatchWhenAllLoaded()
 /* -------------------- OnAllPlayersLoaded -------------------- */
 void AInGameGameMode::OnAllPlayersLoaded()
 {
-	UE_LOG(LogTemp, Log, TEXT("[InGameGM] AllPlayersLoaded -> Countdown start."));
+	//UE_LOG(LogTemp, Log, TEXT("[InGameGM] AllPlayersLoaded -> Countdown start."));
 	AssignRoles();
 	StartCountdown();
 }
@@ -160,7 +162,7 @@ void AInGameGameMode::AssignRoles()
 		{
 			PS->bIsKiller = (i == KillerIndex);
 			PS->ForceNetUpdate();
-			UE_LOG(LogTemp, Log, TEXT("[RoleAssign] %s -> %s"), *PS->GetPlayerName(), PS->bIsKiller ? TEXT("KILLER") : TEXT("SURVIVOR"));
+			//UE_LOG(LogTemp, Log, TEXT("[RoleAssign] %s -> %s"), *PS->GetPlayerName(), PS->bIsKiller ? TEXT("KILLER") : TEXT("SURVIVOR"));
 		}
 	}
 }
@@ -174,15 +176,25 @@ void AInGameGameMode::StartCountdown()
 
 void AInGameGameMode::CountdownTick()
 {
-	UE_LOG(LogTemp, Log, TEXT("[InGameGM] Match starts in %d"), CountdownTime);
+	//UE_LOG(LogTemp, Log, TEXT("[InGameGM] Match starts in %d"), CountdownTime);
 
 	if (CountdownTime <= 1)
 	{
 		GetWorld()->GetTimerManager().ClearTimer(CountdownTimer);
 		ReplaceKillerPawn();
 		StartMatchTimer();
-		// 정국님 여기서 Killer UI 관리하시면 됩니다 !!
-		UE_LOG(LogTemp, Log, TEXT("[InGameGM] Countdown finished. Match begins."));
+
+		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+		{
+			// PlayerController를 InGamePlayerController 타입으로 변환(Cast)합니다.
+			if (AInGamePlayerController* PC = Cast<AInGamePlayerController>(It->Get()))
+			{
+				// 해당 컨트롤러의 Client_InitializeRoleHUD 함수를 호출하여 신호를 보냅니다.
+				PC->Client_InitializeRoleHUD();
+			}
+		}
+
+		//UE_LOG(LogTemp, Log, TEXT("[InGameGM] Countdown finished. Match begins."));
 	}
 	CountdownTime--;
 }
@@ -190,7 +202,7 @@ void AInGameGameMode::CountdownTick()
 /* -------------------- ReplaceKillerPawn -------------------- */
 void AInGameGameMode::ReplaceKillerPawn()
 {
-	UE_LOG(LogTemp, Log, TEXT("[ReplaceKillerPawn] Killer pawn replacement start."));
+	//UE_LOG(LogTemp, Log, TEXT("[ReplaceKillerPawn] Killer pawn replacement start."));
 
 	APlayerController* KillerPC = nullptr;
 	AInGamePlayerState* KillerPS = nullptr;
@@ -266,12 +278,12 @@ void AInGameGameMode::CapturePlayer(AEHSurvivorCharacter* Victim)
 
 void AInGameGameMode::NotifyRescueStarted(AEHSurvivorCharacter* Rescuer)
 {
-	UE_LOG(LogTemp, Log, TEXT("[InGameGM] Rescue started by %s"), *Rescuer->GetName());
+	//UE_LOG(LogTemp, Log, TEXT("[InGameGM] Rescue started by %s"), *Rescuer->GetName());
 }
 
 void AInGameGameMode::NotifyRescueCompleted()
 {
-	UE_LOG(LogTemp, Log, TEXT("[InGameGM] Rescue completed"));
+	//UE_LOG(LogTemp, Log, TEXT("[InGameGM] Rescue completed"));
 	EvaluateAllPlayerStates();
 }
 
@@ -279,8 +291,6 @@ void AInGameGameMode::NotifyRescueCompleted()
 void AInGameGameMode::EvaluateAllPlayerStates()
 {
 	CheckVictoryConditions();
-	if (GEngine)
-		GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Yellow, TEXT("EvaluateAllPlayerStates()"));
 }
 
 /* -------------------- 승패 판정 -------------------- */
@@ -345,7 +355,16 @@ void AInGameGameMode::EndGame(const FString& Reason)
 	GetWorld()->GetTimerManager().ClearTimer(MatchTimerHandle);
 	GetWorld()->GetTimerManager().ClearTimer(CountdownTimer);
 
-	UE_LOG(LogTemp, Warning, TEXT("[InGameGM] GAME OVER: %s"), *Reason);
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AInGamePlayerController* PC = Cast<AInGamePlayerController>(It->Get());
+		if (PC)
+		{
+			PC->ClientOnGameEnded(Reason); // 🎯 여기서 호출!
+		}
+	}
+
+	//UE_LOG(LogTemp, Warning, TEXT("[InGameGM] GAME OVER: %s"), *Reason);
 }
 
 /* -------------------- 발전기 -------------------- */
@@ -424,10 +443,45 @@ void AInGameGameMode::OnEscapeDoorOpened()
 	// 🔹 클라이언트 HUD 갱신 등을 위해 브로드캐스트 할 수도 있음 (옵션)
 	if (GEngine)
 	{
-		GEngine->AddOnScreenDebugMessage(
+		/*GEngine->AddOnScreenDebugMessage(
 			-1, 3.f, FColor::Green,
 			TEXT("Escape Door Opened! 1 minute 30 seconds remaining!")
-		);
+		);*/
+	}
+}
+
+// ✅ Pawn 이동 + 입력 차단 + 관전 진입 (UI 유지)
+void AInGameGameMode::HandlePlayerRemoved(AController* Controller, const FString& Reason)
+{
+	if (!Controller) return;
+
+	APawn* ControlledPawn = Controller->GetPawn();
+	if (ControlledPawn)
+	{
+		Controller->UnPossess();
+
+		TArray<AActor*> SpawnPoints;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerStart::StaticClass(), SpawnPoints);
+
+		for (AActor* Actor : SpawnPoints)
+		{
+			if (APlayerStart* Start = Cast<APlayerStart>(Actor))
+			{
+				if (Start->PlayerStartTag == FName("Spawn.End"))
+				{
+					ControlledPawn->SetActorLocation(Start->GetActorLocation());
+					ControlledPawn->SetActorRotation(Start->GetActorRotation());
+					break;
+				}
+			}
+		}
+
+		ControlledPawn->DisableInput(nullptr); // 조작 불가 처리
+	}
+
+	if (AInGamePlayerController* PC = Cast<AInGamePlayerController>(Controller))
+	{
+		PC->ClientEnterSpectatorMode();
 	}
 }
 
@@ -465,11 +519,10 @@ void AInGameGameMode::OnSurvivorKilled(AEHSurvivorCharacter* Victim)
 	{
 		VictimPS->SurvivorState = ESurvivorState::Dead;
 		VictimPS->ForceNetUpdate();
-
-		UE_LOG(LogTemp, Warning, TEXT("[GameMode] %s is DEAD (Captured 3 times)."),
-			*VictimPS->GetPlayerName());
 	}
 
+	HandlePlayerRemoved(Victim->GetController(), TEXT("You were killed."));
+	
 	// 🔹 게임 상태 재평가 (승리 조건 확인)
 	EvaluateAllPlayerStates();
 	CheckVictoryConditions();

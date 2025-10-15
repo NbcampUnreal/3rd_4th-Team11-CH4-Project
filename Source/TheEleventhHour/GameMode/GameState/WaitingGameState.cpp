@@ -25,7 +25,7 @@ void AWaitingGameState::UpdateReadyState()
 	ReadyCount = NewReady;
 	TotalPlayers = NewTotal;
 
-	UE_LOG(LogTemp, Log, TEXT("[GameState] UpdateReadyState -> Ready: %d / Total: %d"), ReadyCount, TotalPlayers);
+	//UE_LOG(LogTemp, Log, TEXT("[GameState] UpdateReadyState -> Ready: %d / Total: %d"), ReadyCount, TotalPlayers);
 
 	// ✅ 클라이언트 UI 갱신용 이벤트 브로드캐스트
 	OnPlayerCountUpdated.Broadcast();
@@ -33,7 +33,7 @@ void AWaitingGameState::UpdateReadyState()
 	// ✅ 모든 인원이 Ready면 자동으로 게임 시작
 	if (HasAuthority() && ReadyCount == TotalPlayers && TotalPlayers > 0)
 	{
-		UE_LOG(LogTemp, Log, TEXT("[Server] All players ready! Starting game automatically..."));
+		//UE_LOG(LogTemp, Log, TEXT("[Server] All players ready! Starting game automatically..."));
 		GetWorld()->ServerTravel(TEXT("/Game/Levels/Maps/IngameLevel"));
 	}
 }

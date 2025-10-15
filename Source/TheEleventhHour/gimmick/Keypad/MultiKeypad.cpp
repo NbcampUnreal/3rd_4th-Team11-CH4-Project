@@ -134,7 +134,7 @@ void AMultiKeypad::MulticastRPCCompleteProgress_Implementation()
 //IsProgressing(입력 여부) 감지하여 사운드 재생
 void AMultiKeypad::OnRep_PlaySound()
 {
-	UE_LOG(LogTemp, Warning, TEXT("OnRep_PlaySound called: bIsProgressing = %s"), bIsProgressing ? TEXT("true") : TEXT("false"));
+	//UE_LOG(LogTemp, Warning, TEXT("OnRep_PlaySound called: bIsProgressing = %s"), bIsProgressing ? TEXT("true") : TEXT("false"));
 	if (bIsProgressing && !bIsCompleted)
 	{
 		AudioComponent = UGameplayStatics::SpawnSoundAtLocation(this, ProgressSound, GetActorLocation());
@@ -174,11 +174,6 @@ void AMultiKeypad::OpenNearestDoor()
 //디버깅용
 void AMultiKeypad::MulticastRPCShowProgress_Implementation()
 {
-	if (GEngine)
-	{
-		FString DebugMsg = FString::Printf(TEXT("KeypadProgress: %.2f"), Progress);
-		GEngine->AddOnScreenDebugMessage(-1, ProgressDuration - 0.01f, FColor::Blue, DebugMsg);
-	}
 }
 
 void AMultiKeypad::SetCanInteract(bool CanInteract)

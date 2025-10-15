@@ -423,14 +423,14 @@ void AMurdererCharacter::Attack_Implementation(const FInputActionValue& ActionVa
 
 void AMurdererCharacter::NetMulticast_PlayAttackAnimMontage_Implementation()
 {
-		UE_LOG(LogTemp,Log,TEXT("공격 몽타주 재생 시도"));
+		//UE_LOG(LogTemp,Log,TEXT("공격 몽타주 재생 시도"));
 		if (AttackMontage && GetMesh()->GetAnimInstance())
 		{
 			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 			if (!AnimInstance->Montage_IsPlaying(AttackMontage))
 			{
 				AnimInstance->Montage_Play(AttackMontage);
-				UE_LOG(LogTemp,Log,TEXT("공격 몽타주 재생 성공"));
+				//UE_LOG(LogTemp,Log,TEXT("공격 몽타주 재생 성공"));
 			}
 		}
 		if (IsLocallyControlled()&&Mesh1P&&Mesh1P->GetAnimInstance())
@@ -528,5 +528,5 @@ void AMurdererCharacter::PerformMeleeHit()
 			// 선택: 이펙트/사운드 
 		}
 	}
-	UE_LOG(LogTemp,Log,TEXT(__FUNCTION__));
+	//UE_LOG(LogTemp,Log,TEXT(__FUNCTION__));
 }

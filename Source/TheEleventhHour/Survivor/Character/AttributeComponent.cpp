@@ -62,7 +62,7 @@ void UAttributeComponent::OnRep_CurrentSpeed()
 		if (Char->GetCharacterMovement())
 		{
 			Char->GetCharacterMovement()->MaxWalkSpeed = CurrentSpeed;
-			UE_LOG(LogTemp, Warning, TEXT("CurrentSpeed 적용: %f"), CurrentSpeed);
+			//UE_LOG(LogTemp, Warning, TEXT("CurrentSpeed 적용: %f"), CurrentSpeed);
 		}
 	}
 }

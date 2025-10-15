@@ -18,7 +18,10 @@ class THEELEVENTHHOUR_API UInGameHUDWidget : public UUserWidget
 	GENERATED_BODY()
 
 public:
+    void SetRoleSpecificVisibility(bool bIsKiller);
     void UpdateHUD(int32 RemainingTime, int32 GeneratorsRepaired, bool bExitOpened);
+    void UpdateMurdererWidgets(bool bCanUseSkill, float RemainingCooldown, float TotalCooldown, float SkillDuration, float CurrentSprint, float MaxSprint);
+
 	
 protected:
     virtual void NativeConstruct() override;
@@ -44,4 +47,5 @@ protected:
 
     UPROPERTY(Transient)
     TObjectPtr<AInGamePlayerState> CurrentPlayerState;
+
 };
