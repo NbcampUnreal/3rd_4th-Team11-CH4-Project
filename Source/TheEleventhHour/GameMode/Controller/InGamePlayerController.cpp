@@ -122,8 +122,22 @@ void AInGamePlayerController::ClientOnGameEnded_Implementation(const FString& En
 		UResultScreenWidget* ResultWidget = CreateWidget<UResultScreenWidget>(this, ResultScreenWidgetClass);
 		if (ResultWidget)
 		{
-			ResultWidget->SetResultText(EndReason);
+			if (AInGameGameState* GS = GetWorld()->GetGameState<AInGameGameState>())
+			{
+				TArray<AInGamePlayerState*> AllPlayerStates;
+				for (APlayerState* PS : GS->PlayerArray)
+				{
+					if (AInGamePlayerState* InGamePS = Cast<AInGamePlayerState>(PS))
+					{
+						AllPlayerStates.Add(InGamePS);
+					}
+				}
+				ResultWidget->PopulateResults(AllPlayerStates);
+			}
 			ResultWidget->AddToViewport();
+
+			
+			UGameplayStatics::SetGamePaused(GetWorld(), true);
 
 			FInputModeUIOnly InputMode;
 			InputMode.SetWidgetToFocus(ResultWidget->TakeWidget());

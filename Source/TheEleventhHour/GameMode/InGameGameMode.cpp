@@ -14,6 +14,7 @@
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameMode/Controller/InGamePlayerController.h"
 
 AInGameGameMode::AInGameGameMode()
 	: PrisonManager(nullptr)
@@ -344,6 +345,15 @@ void AInGameGameMode::EndGame(const FString& Reason)
 
 	GetWorld()->GetTimerManager().ClearTimer(MatchTimerHandle);
 	GetWorld()->GetTimerManager().ClearTimer(CountdownTimer);
+
+	for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		AInGamePlayerController* PC = Cast<AInGamePlayerController>(It->Get());
+		if (PC)
+		{
+			PC->ClientOnGameEnded(Reason); // 🎯 여기서 호출!
+		}
+	}
 
 	UE_LOG(LogTemp, Warning, TEXT("[InGameGM] GAME OVER: %s"), *Reason);
 }
