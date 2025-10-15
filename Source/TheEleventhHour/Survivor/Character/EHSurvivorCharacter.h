@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Item/Chest/Chest.h"
 #include "Survivor/Character/AttributeComponent.h"
 #include "EHSurvivorCharacter.generated.h"
 
@@ -69,6 +70,7 @@ protected:
 
 	UFUNCTION()
 	void DeleteHitMark();
+	void BreakChest(AChest* Chest);
 	UPROPERTY()
 	FTimerHandle DeleteHitMarkHandle;
 	
@@ -98,7 +100,9 @@ protected:
 	USoundBase* FootstepSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	USoundAttenuation* FootstepAttenuation;
-
+	UPROPERTY(VisibleAnywhere, Category="Audio")
+	TObjectPtr<UAudioComponent> HeartbeatAudioComp;
+	
 public:
 	UFUNCTION()
 	void PlayFootstepSound();

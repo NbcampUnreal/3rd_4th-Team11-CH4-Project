@@ -5,6 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 #include "GameMode/InGameGameMode.h"
+#include "GameMode/PlayerState/InGamePlayerState.h"
 #include "Survivor/Character/EHSurvivorCharacter.h"
 
 AGenerators::AGenerators()
@@ -147,19 +148,34 @@ void AGenerators::CompleteGenerator()
 		{
 			if (IsValid(Survivor))
 			{
+				// ✅ 수리 중단 처리
 				Survivor->ServerRPCCancelInteract();
+
+				// ✅ 통계 반영: 발전기 수리 횟수 +1
+				if (AInGamePlayerState* PS = Survivor->GetPlayerState<AInGamePlayerState>())
+				{
+					PS->AddGeneratorRepair();
+					UE_LOG(LogTemp, Log, TEXT("[Generator] %s repaired generator (total: %d)"),
+						*PS->GetPlayerName(), PS->NumGeneratorsRepaired);
+
+					if (AInGameGameMode* GM = GetWorld()->GetAuthGameMode<AInGameGameMode>())
+					{
+						GM->LogAllPlayerStates();
+					}
+				}
 			}
 		}
-		
-		AInGameGameMode* GM = Cast<AInGameGameMode>(GetWorld()->GetAuthGameMode());
-		if (GM)
+
+		// ✅ 게임모드에 전체 발전기 수리 보고
+		if (AInGameGameMode* GM = Cast<AInGameGameMode>(GetWorld()->GetAuthGameMode()))
 		{
 			GM->CompletedRepair();
 		}
+
 		RepairCount = -1;
 	}
-	
-	UGameplayStatics::PlaySoundAtLocation(this,CompleteSound,GetActorLocation());
+
+	UGameplayStatics::PlaySoundAtLocation(this, CompleteSound, GetActorLocation());
 	MulticastRPCStopGeneratorSound();
 	GetWorldTimerManager().ClearTimer(RepairTimerHandle);
 	bIsCompleted = true;

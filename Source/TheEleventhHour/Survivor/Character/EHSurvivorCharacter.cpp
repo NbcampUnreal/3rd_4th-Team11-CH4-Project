@@ -12,6 +12,7 @@
 #include "DrawDebugHelpers.h"
 #include "EngineUtils.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/AudioComponent.h"
 #include "Item/Chest/Chest.h"
 #include "GameFramework/DamageType.h"
 #include "Engine/DamageEvents.h"
@@ -19,6 +20,7 @@
 #include "GameMode/PlayerState/InGamePlayerState.h"
 #include "GameMode/Prison/PrisonManager.h"
 #include "Item/Inventory/InventoryComponent.h"
+#include "Murderer/MurdererCharacter.h"
 #include "UI/Widgets/InGameHUD/Status/InteractProgressWidget.h"
 #include "Net/UnrealNetwork.h"
 
@@ -56,6 +58,10 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	CameraComp->SetupAttachment(SpringArm);
 
+	HeartbeatAudioComp = CreateDefaultSubobject<UAudioComponent>(TEXT("HeartbeatAudio"));
+	HeartbeatAudioComp->SetupAttachment(RootComponent);
+	HeartbeatAudioComp->bAutoActivate = false;
+
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
@@ -91,7 +97,7 @@ void AEHSurvivorCharacter::BeginPlay()
 	{
 		DeathMontagePlayTime = DeathMontage->GetPlayLength();
 	}
-
+	
 	// 🔹 클라이언트(혹은 리슨 서버의 로컬플레이어)에서만 입력 매핑
 	if (GetNetMode() != NM_DedicatedServer && IsLocallyControlled())
 	{
@@ -202,26 +208,45 @@ float AEHSurvivorCharacter::TakeDamage(
 	if (!HasAuthority())
 		return 0.f;
 
-	const float OldHP = AttributeComp->GetHealth();
-	AttributeComp->TakeDamage(DamageAmount);
-	const float NewHP = AttributeComp->GetHealth();
-	
 	AInGamePlayerState* PS = GetPlayerState<AInGamePlayerState>();
 	if (!PS) return 0.f;
-	
-	if (NewHP <= 0.f && !bIsDead)
+
+	// 🔹 현재 생존자 상태에 따라 단계별 전환
+	switch (PS->SurvivorState)
 	{
-		PS->ServerSetSurvivorState(ESurvivorState::Captured); // 감옥 수감 처리
-		MulticastDeathMontage();
-	}
-	else if (NewHP < OldHP)
-	{
-		PS->ServerSetSurvivorState(ESurvivorState::Injured);
-		MulticastHitMontage();
+	case ESurvivorState::Alive:
+		{
+			PS->ServerSetSurvivorState(ESurvivorState::Injured);
+			MulticastHitMontage();
+			UE_LOG(LogTemp, Log, TEXT("[Survivor] %s → Injured"), *GetName());
+			break;
+		}
+	case ESurvivorState::Injured:
+		{
+			PS->ServerSetSurvivorState(ESurvivorState::Captured);
+			MulticastDeathMontage();
+			UE_LOG(LogTemp, Log, TEXT("[Survivor] %s → Captured"), *GetName());
+			break;
+		}
+	case ESurvivorState::Captured:
+		{
+			// 이미 감옥에 있음 → 무시
+			UE_LOG(LogTemp, Log, TEXT("[Survivor] %s already captured, ignoring damage"), *GetName());
+			break;
+		}
+	case ESurvivorState::Dead:
+	case ESurvivorState::Escaped:
+	default:
+		{
+			// 사망 또는 탈출 상태에서는 무시
+			UE_LOG(LogTemp, Log, TEXT("[Survivor] %s cannot take damage in current state"), *GetName());
+			break;
+		}
 	}
 
-	return OldHP - NewHP;
+	return DamageAmount;
 }
+
 
 // ============================== 🔹 감옥 시스템 추가 ==============================
 void AEHSurvivorCharacter::HandleStateChange(ESurvivorState NewState)
@@ -277,7 +302,40 @@ void AEHSurvivorCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	
+	if (!IsLocallyControlled()) return;
+
+	AMurdererCharacter* Killer = nullptr;
+
+	for (TActorIterator<AMurdererCharacter> It(GetWorld()); It; ++It)
+	{
+		Killer = *It;
+		break;
+	}
+
+	if (!Killer || !HeartbeatAudioComp) return;
+
+	float Distance = FVector::Dist(Killer->GetActorLocation(), GetActorLocation());
+
+	float MaxRange = 5000.0f;
+	float MinRange = 300.0f;
+
+	if (Distance > MaxRange)
+	{
+		if (HeartbeatAudioComp->IsPlaying())
+			HeartbeatAudioComp->Stop();
+		return;
+	}
+
+	if (!HeartbeatAudioComp->IsPlaying())
+	{
+		HeartbeatAudioComp->Play();
+	}
+
+	float Volume = FMath::GetMappedRangeValueClamped(FVector2D(MaxRange, MinRange), FVector2D(0.0f, 3.0f), Distance);
+	float Pitch = FMath::GetMappedRangeValueClamped(FVector2D(MaxRange, MinRange), FVector2D(0.7f, 1.5f), Distance);
+
+	HeartbeatAudioComp->SetVolumeMultiplier(Volume);
+	HeartbeatAudioComp->SetPitchMultiplier(Pitch);
 }
 
 //============================== 인풋 바인딩 ==============================
@@ -397,23 +455,46 @@ void AEHSurvivorCharacter::StartInteraction()
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(this);
 
-	if (GetWorld()->LineTraceSingleByChannel(HitResult,LineTraceStart,LineTraceEnd,ECC_Visibility,Params))
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, LineTraceStart, LineTraceEnd, ECC_Visibility, Params))
 	{
 		AActor* HitActor = HitResult.GetActor();
 		if (HitActor)
 		{
-			UE_LOG(LogTemp,Log,TEXT("%s"),*HitActor->GetName());
+			UE_LOG(LogTemp, Log, TEXT("%s"), *HitActor->GetName());
+
 			if (AMultiplayDoor* Door = Cast<AMultiplayDoor>(HitActor))
 			{
 				if (Door->GetIsOpenDoor()) return;
 				if (Door->GetIsRemoteDoor()) return;
-				//아이템(키) 소지 여부 확인 및 사용 로직
+
+				// ✅ 감옥문은 Alive/Injured 상태의 생존자만 열 수 있음
+				if (AInGamePlayerState* PS = GetPlayerState<AInGamePlayerState>())
+				{
+					if (PS->SurvivorState != ESurvivorState::Alive && 
+						PS->SurvivorState != ESurvivorState::Injured)
+					{
+						UE_LOG(LogTemp, Warning, TEXT("[Door] %s cannot open prison door (state: %s)"),
+							*PS->GetPlayerName(),
+							*UEnum::GetValueAsString(PS->SurvivorState));
+						return; // ✅ 상태 제한
+					}
+				}
+
+				// ✅ 아이템(키) 소지 여부 확인 및 사용 로직
 				if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
 				{
-					if (Inv->ConsumeKey())   // 키가 있으면 true + 소모됨
+					if (Inv->ConsumeKey()) // 키가 있으면 true + 소모됨
 					{
 						MulticastDoorInteractMontage();
 						ServerRTryOpenDoorWithKey(Door); // 서버에서 실제 개방
+
+						// ✅ 감옥문 해제 통계 (여기서 기록 가능)
+						if (AInGamePlayerState* PS = GetPlayerState<AInGamePlayerState>())
+						{
+							PS->AddPrisonUnlocked();
+							UE_LOG(LogTemp, Log, TEXT("[Door] %s unlocked a prison (total: %d)"),
+								*PS->GetPlayerName(), PS->NumPrisonsUnlocked);
+						}
 					}
 					else
 					{
@@ -421,9 +502,8 @@ void AEHSurvivorCharacter::StartInteraction()
 					}
 				}
 				return;
-				
-				// ServerRPCInteractionDoorOnPawn(Door);
 			}
+
 			if (AGenerators* Generator = Cast<AGenerators>(HitActor))
 			{
 				if (!bIsInteracting)
@@ -579,6 +659,19 @@ void AEHSurvivorCharacter::DeleteHitMark()
 	GetMesh()->SetCustomDepthStencilValue(2);
 }
 
+void AEHSurvivorCharacter::BreakChest(AChest* Chest)
+{
+	if (!HasAuthority() || !Chest) return;
+
+	FDamageEvent DamageEvent;
+	UGameplayStatics::ApplyDamage(
+		Chest,
+		5.f,
+		GetController(),   // ✅ InstigatorController 설정
+		this,              // ✅ DamageCauser 설정 (Survivor)
+		UDamageType::StaticClass()
+	);
+}
 
 //============================== 공격 ==============================
 void AEHSurvivorCharacter::AttackInput(const FInputActionValue& value) // 공격 인풋

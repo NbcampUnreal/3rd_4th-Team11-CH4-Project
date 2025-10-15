@@ -43,12 +43,18 @@ public:
 	/** 🔹 발전기 완성 시 호출 */
 	void CompletedRepair();
 
+	UFUNCTION(BlueprintCallable, Category="Game|Survivor")
+	void OnSurvivorKilled(class AEHSurvivorCharacter* Victim);
+
 	/** ✅ 생존자 감옥 이동 (감옥 매니저 통해 처리) */
 	UFUNCTION(BlueprintCallable, Category="GameRule")
 	void SendToPrison(AInGamePlayerState* CapturedPlayer);
 
 	UFUNCTION(BlueprintCallable, Category="Game|Generators")
 	void OnEscapeDoorOpened();
+
+	UFUNCTION()
+	void LogAllPlayerStates();
 
 protected:
 	virtual void BeginPlay() override;

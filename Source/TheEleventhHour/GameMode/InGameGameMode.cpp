@@ -14,8 +14,6 @@
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 #include "Kismet/GameplayStatics.h"
-#include "Murderer/MurdererCharacter.h"
-#include "Murderer/OutlineManager/SurvivorOutlineManager.h"
 
 AInGameGameMode::AInGameGameMode()
 	: PrisonManager(nullptr)
@@ -85,6 +83,8 @@ void AInGameGameMode::Tick(float DeltaSeconds)
 
 AActor* AInGameGameMode::ChoosePlayerStart_Implementation(AController* Player)
 {
+	static TSet<APlayerStart*> UsedStarts; // 이미 사용된 스타트 기록 (게임 세션 동안 유지)
+
 	TArray<AActor*> SpawnPoints;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APlayerStart::StaticClass(), SpawnPoints);
 
@@ -93,24 +93,33 @@ AActor* AInGameGameMode::ChoosePlayerStart_Implementation(AController* Player)
 	// 🔹 "Spawn.Player" 태그가 붙은 스타트만 필터링
 	for (AActor* Actor : SpawnPoints)
 	{
-		APlayerStart* Start = Cast<APlayerStart>(Actor);
-		if (Start && Start->PlayerStartTag == FName("Spawn.Player"))
+		if (APlayerStart* Start = Cast<APlayerStart>(Actor))
 		{
-			PlayerTaggedStarts.Add(Start);
+			if (Start->PlayerStartTag == FName("Spawn.Player"))
+			{
+				// ✅ 아직 사용되지 않은 Start만 추가
+				if (!UsedStarts.Contains(Start))
+				{
+					PlayerTaggedStarts.Add(Start);
+				}
+			}
 		}
 	}
 
-	// ✅ 태그가 붙은 스타트가 하나라도 있다면 랜덤 선택
+	// ✅ 사용 가능한 스타트가 있다면 랜덤 선택
 	if (PlayerTaggedStarts.Num() > 0)
 	{
 		const int32 Index = FMath::RandRange(0, PlayerTaggedStarts.Num() - 1);
 		APlayerStart* ChosenStart = PlayerTaggedStarts[Index];
+
+		UsedStarts.Add(ChosenStart); // 사용 처리
 		UE_LOG(LogTemp, Log, TEXT("[ChoosePlayerStart] Spawned at %s"), *ChosenStart->GetName());
+
 		return ChosenStart;
 	}
 
-	// 🚨 없으면 기본 로직 사용 (안전 fallback)
-	UE_LOG(LogTemp, Warning, TEXT("[ChoosePlayerStart] No 'Spawn.Player' found! Using default."));
+	// 🚨 모든 Start가 이미 사용되었거나 없을 경우 — 마지막 선택 사용
+	UE_LOG(LogTemp, Warning, TEXT("[ChoosePlayerStart] All 'Spawn.Player' points used or missing! Using default."));
 	return Super::ChoosePlayerStart_Implementation(Player);
 }
 
@@ -172,6 +181,7 @@ void AInGameGameMode::CountdownTick()
 		GetWorld()->GetTimerManager().ClearTimer(CountdownTimer);
 		ReplaceKillerPawn();
 		StartMatchTimer();
+		// 정국님 여기서 Killer UI 관리하시면 됩니다 !!
 		UE_LOG(LogTemp, Log, TEXT("[InGameGM] Countdown finished. Match begins."));
 	}
 	CountdownTime--;
@@ -237,7 +247,6 @@ void AInGameGameMode::MatchTick()
 	if (!GS || GS->bGameEnded) return;
 
 	GS->RemainingTime--;
-	if (GS->bExitGateOpened && GS->RemainingTime > 60) GS->RemainingTime = 60;
 
 	if (GS->RemainingTime <= 0)
 	{
@@ -367,8 +376,6 @@ void AInGameGameMode::CompletedRepair()
 	}
 }
 
-
-
 /* -------------------- 감옥 이동 -------------------- */
 void AInGameGameMode::SendToPrison(AInGamePlayerState* CapturedPlayer)
 {
@@ -380,11 +387,24 @@ void AInGameGameMode::SendToPrison(AInGamePlayerState* CapturedPlayer)
 	AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(PC->GetPawn());
 	if (!Survivor || !PrisonManager) return;
 
-	// ✅ 수감은 반드시 PrisonManager가 수행 (배열 갱신 + 상태/이동 포함)
+	// ✅ 감옥에 실제로 수감 (위치 이동 + 상태 변경)
 	PrisonManager->Capture(Survivor);
 
+	// ✅ 감금 횟수 1 증가 (PlayerState 내부에서 3회 시 사망 자동 처리)
+	CapturedPlayer->AddSurvivorCaptured();
+
+	// ✅ 디버그 로그
+	UE_LOG(LogTemp, Log, TEXT("[InGameGM] %s captured (%d/3)"),
+		*CapturedPlayer->GetPlayerName(),
+		CapturedPlayer->NumCapturedTimes);
+
+	// ✅ 생존자 상태 평가 (게임 진행 상황 갱신)
 	EvaluateAllPlayerStates();
+	CheckVictoryConditions();
+
+	LogAllPlayerStates();  // ✅ 추가
 }
+
 
 void AInGameGameMode::OnEscapeDoorOpened()
 {
@@ -409,4 +429,87 @@ void AInGameGameMode::OnEscapeDoorOpened()
 			TEXT("Escape Door Opened! 1 minute 30 seconds remaining!")
 		);
 	}
+}
+
+void AInGameGameMode::OnSurvivorKilled(AEHSurvivorCharacter* Victim)
+{
+	if (!HasAuthority() || !Victim) return;
+
+	AInGamePlayerState* KillerPS = nullptr;
+	AInGamePlayerState* VictimPS = Cast<AInGamePlayerState>(Victim->GetPlayerState());
+
+	// 🔹 킬러 찾기 (GameState의 PlayerArray에서 bIsKiller == true인 사람)
+	for (APlayerState* PS : GameState->PlayerArray)
+	{
+		if (AInGamePlayerState* PlayerPS = Cast<AInGamePlayerState>(PS))
+		{
+			if (PlayerPS->bIsKiller)
+			{
+				KillerPS = PlayerPS;
+				break;
+			}
+		}
+	}
+
+	// 🔹 킬러의 킬 카운트 +1
+	if (KillerPS)
+	{
+		KillerPS->AddKillerKill();
+		UE_LOG(LogTemp, Warning, TEXT("[GameMode] %s killed %s"),
+			*KillerPS->GetPlayerName(),
+			VictimPS ? *VictimPS->GetPlayerName() : TEXT("Unknown Victim"));
+	}
+
+	// 🔹 희생자 상태 변경
+	if (VictimPS)
+	{
+		VictimPS->SurvivorState = ESurvivorState::Dead;
+		VictimPS->ForceNetUpdate();
+
+		UE_LOG(LogTemp, Warning, TEXT("[GameMode] %s is DEAD (Captured 3 times)."),
+			*VictimPS->GetPlayerName());
+	}
+
+	// 🔹 게임 상태 재평가 (승리 조건 확인)
+	EvaluateAllPlayerStates();
+	CheckVictoryConditions();
+
+	LogAllPlayerStates();  // ✅ 추가
+}
+
+void AInGameGameMode::LogAllPlayerStates()
+{
+	if (!HasAuthority()) return;
+
+	UE_LOG(LogTemp, Warning, TEXT("======== [Player Status Report] ========"));
+
+	for (APlayerState* PS : GameState->PlayerArray)
+	{
+		if (AInGamePlayerState* PlayerPS = Cast<AInGamePlayerState>(PS))
+		{
+			const FString RoleName = PlayerPS->bIsKiller ? TEXT("KILLER") : TEXT("SURVIVOR");
+			const FString StateName = StaticEnum<ESurvivorState>()->GetNameStringByValue((int64)PlayerPS->SurvivorState);
+
+			if (PlayerPS->bIsKiller)
+			{
+				UE_LOG(LogTemp, Warning, TEXT(" - %s [%s] | Kills: %d, Captured: %d"),
+					*PlayerPS->GetPlayerName(),
+					*RoleName,
+					PlayerPS->NumKilled,
+					PlayerPS->NumCaptured);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT(" - %s [%s] | State: %s | Captured: %d/2 | Repairs: %d | Chests: %d | Prisons: %d"),
+					*PlayerPS->GetPlayerName(),
+					*RoleName,
+					*StateName,
+					PlayerPS->NumCapturedTimes,
+					PlayerPS->NumGeneratorsRepaired,
+					PlayerPS->NumChestsBroken,
+					PlayerPS->NumPrisonsUnlocked);
+			}
+		}
+	}
+	UE_LOG(LogTemp, Warning, TEXT("========================================"));
 }
