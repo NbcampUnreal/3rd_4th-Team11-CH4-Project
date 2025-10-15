@@ -105,7 +105,7 @@
 |-------|--------------------------|------------------------------|
 | 김선우 | 생존자 로직 & 기믹 일부  | [생존자 클래스 다이어 그램](https://www.notion.so/28d345149799802a83c3f5ca4a3bb49f?source=copy_link) |
 | 이서호 | 아이템 시스템 & README   | [아이템 클래스 다이어 그램](https://github.com/dltjgh17/Unreal_TIL/tree/main/October/10.14) |
-| 서윤성 | GameMode / 네트워크 틀   | -                            |
+| 서윤성 | GameMode / 네트워크 틀   | [서버, 게임모드 구조도](https://yoonsung.tistory.com/55) |                           |
 | 정윤호 | 살인마 & 근접 공격       | [기술 정리](https://hakunamatata0930.tistory.com/63) |
 | 이정국 | UI / HUD                | [Velog 글](https://velog.io/@palebluedot_/...Team-Project) |
 | 허중영 | 맵 디자인                | [Tistory 글](https://gamergo.tistory.com/63) |
@@ -149,7 +149,7 @@ Source/TheEleventhHour
 | 이름      | 담당                                       |
 | ------- | ---------------------------------------- |
 | 김선우     | 생존자 로직, 기믹 일부 + 발표자료 정리                  |
-| **이서호** | 아이템 시스템 + README 정리                      |
+| 이서호 | 아이템 시스템 + README 정리                      |
 | 서윤성     | GameMode / GameState / 네트워크 틀 + 시연 영상 제작 |
 | 정윤호     | 살인마 캐릭터, 근접 공격 + 기술 명세                   |
 | 이정국     | UI / HUD + 발표                            |
