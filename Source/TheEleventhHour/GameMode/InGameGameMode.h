@@ -87,7 +87,7 @@ protected:
 
 	// ---- 발전기 ----
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Game|Generators")
-	int32 TotalGeneratorCount = 1;  // 전체 발전기 수 (기본값 5)
+	int32 TotalGeneratorCount = 5;  // 전체 발전기 수 (기본값 5)
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="Game|Generators")
 	int32 RemainingGeneratorCount = 0;  // 현재 남은 발전기 수

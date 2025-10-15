@@ -247,7 +247,6 @@ void AInGameGameMode::MatchTick()
 	if (!GS || GS->bGameEnded) return;
 
 	GS->RemainingTime--;
-	if (GS->bExitGateOpened && GS->RemainingTime > 60) GS->RemainingTime = 60;
 
 	if (GS->RemainingTime <= 0)
 	{
@@ -397,7 +396,7 @@ void AInGameGameMode::SendToPrison(AInGamePlayerState* CapturedPlayer)
 	// ✅ 디버그 로그
 	UE_LOG(LogTemp, Log, TEXT("[InGameGM] %s captured (%d/3)"),
 		*CapturedPlayer->GetPlayerName(),
-		CapturedPlayer->NumTimesCaptured);
+		CapturedPlayer->NumCapturedTimes);
 
 	// ✅ 생존자 상태 평가 (게임 진행 상황 갱신)
 	EvaluateAllPlayerStates();
@@ -505,7 +504,7 @@ void AInGameGameMode::LogAllPlayerStates()
 					*PlayerPS->GetPlayerName(),
 					*RoleName,
 					*StateName,
-					PlayerPS->NumTimesCaptured,
+					PlayerPS->NumCapturedTimes,
 					PlayerPS->NumGeneratorsRepaired,
 					PlayerPS->NumChestsBroken,
 					PlayerPS->NumPrisonsUnlocked);

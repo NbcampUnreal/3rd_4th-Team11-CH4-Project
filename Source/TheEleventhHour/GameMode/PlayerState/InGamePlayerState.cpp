@@ -147,10 +147,10 @@ void AInGamePlayerState::AddSurvivorCaptured()
 {
 	if (!HasAuthority()) return;
 
-	NumTimesCaptured++;
-	UE_LOG(LogTemp, Log, TEXT("[PS] %s captured (%d/3)"), *GetPlayerName(), NumTimesCaptured);
+	NumCapturedTimes++;
+	UE_LOG(LogTemp, Log, TEXT("[PS] %s captured (%d/3)"), *GetPlayerName(), NumCapturedTimes);
 
-	if (NumTimesCaptured >= 3)
+	if (NumCapturedTimes >= 3)
 	{
 		SurvivorState = ESurvivorState::Dead;
 
@@ -200,8 +200,10 @@ void AInGamePlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
 
 	// 🔹 통계 데이터 복제
 	DOREPLIFETIME(AInGamePlayerState, TotalPlayTime);
+	
 	DOREPLIFETIME(AInGamePlayerState, NumCaptured);
 	DOREPLIFETIME(AInGamePlayerState, NumKilled);
+	
 	DOREPLIFETIME(AInGamePlayerState, NumGeneratorsRepaired);
 	DOREPLIFETIME(AInGamePlayerState, NumChestsBroken);
 	DOREPLIFETIME(AInGamePlayerState, NumPrisonsUnlocked);

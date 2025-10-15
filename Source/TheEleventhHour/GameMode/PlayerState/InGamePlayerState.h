@@ -92,9 +92,6 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category="Stats|Survivor")
 	int32 NumCapturedTimes = 0; // 감옥에 갇힌 횟수
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category="Stats|Survivor")
-	int32 NumTimesCaptured; // 감금 횟수
-
 	UFUNCTION()
 	void AddSurvivorCaptured();
 
