@@ -55,19 +55,7 @@ AMurdererCharacter::AMurdererCharacter()
 void AMurdererCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(
-			666, 1.0f, FColor::Green,FString::Printf(TEXT("SprintGauge: %f"), SprintGauge)
-		);
-
-		GEngine->AddOnScreenDebugMessage(
-			667,1.0f,FColor::Green,FString::Printf(TEXT("RemainSkill1CoolDown : %f"),RemainSkill1Cooldown));
-
-		GEngine->AddOnScreenDebugMessage(
-			668,1.0f,FColor::Green,FString::Printf(TEXT("RemainAttackCoolDown : %f"),RemainAttackCooldown));
-	}
+	
 
 	//----------플레이어 추격 음악 로직-----------
     if (!IsLocallyControlled() || !ChaseMusicAudioComp || !BGMActor) 
