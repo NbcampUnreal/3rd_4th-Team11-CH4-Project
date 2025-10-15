@@ -12,6 +12,7 @@
 #include "DrawDebugHelpers.h"
 #include "EngineUtils.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/AudioComponent.h"
 #include "Item/Chest/Chest.h"
 #include "GameFramework/DamageType.h"
 #include "Engine/DamageEvents.h"
@@ -19,6 +20,7 @@
 #include "GameMode/PlayerState/InGamePlayerState.h"
 #include "GameMode/Prison/PrisonManager.h"
 #include "Item/Inventory/InventoryComponent.h"
+#include "Murderer/MurdererCharacter.h"
 #include "UI/Widgets/InGameHUD/Status/InteractProgressWidget.h"
 #include "Net/UnrealNetwork.h"
 
@@ -56,6 +58,10 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	CameraComp->SetupAttachment(SpringArm);
 
+	HeartbeatAudioComp = CreateDefaultSubobject<UAudioComponent>(TEXT("HeartbeatAudio"));
+	HeartbeatAudioComp->SetupAttachment(RootComponent);
+	HeartbeatAudioComp->bAutoActivate = false;
+
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
@@ -91,7 +97,7 @@ void AEHSurvivorCharacter::BeginPlay()
 	{
 		DeathMontagePlayTime = DeathMontage->GetPlayLength();
 	}
-
+	
 	// 🔹 클라이언트(혹은 리슨 서버의 로컬플레이어)에서만 입력 매핑
 	if (GetNetMode() != NM_DedicatedServer && IsLocallyControlled())
 	{
@@ -296,7 +302,40 @@ void AEHSurvivorCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	
+	if (!IsLocallyControlled()) return;
+
+	AMurdererCharacter* Killer = nullptr;
+
+	for (TActorIterator<AMurdererCharacter> It(GetWorld()); It; ++It)
+	{
+		Killer = *It;
+		break;
+	}
+
+	if (!Killer || !HeartbeatAudioComp) return;
+
+	float Distance = FVector::Dist(Killer->GetActorLocation(), GetActorLocation());
+
+	float MaxRange = 5000.0f;
+	float MinRange = 300.0f;
+
+	if (Distance > MaxRange)
+	{
+		if (HeartbeatAudioComp->IsPlaying())
+			HeartbeatAudioComp->Stop();
+		return;
+	}
+
+	if (!HeartbeatAudioComp->IsPlaying())
+	{
+		HeartbeatAudioComp->Play();
+	}
+
+	float Volume = FMath::GetMappedRangeValueClamped(FVector2D(MaxRange, MinRange), FVector2D(0.0f, 3.0f), Distance);
+	float Pitch = FMath::GetMappedRangeValueClamped(FVector2D(MaxRange, MinRange), FVector2D(0.7f, 1.5f), Distance);
+
+	HeartbeatAudioComp->SetVolumeMultiplier(Volume);
+	HeartbeatAudioComp->SetPitchMultiplier(Pitch);
 }
 
 //============================== 인풋 바인딩 ==============================

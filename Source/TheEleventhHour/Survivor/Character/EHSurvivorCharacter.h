@@ -100,7 +100,9 @@ protected:
 	USoundBase* FootstepSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	USoundAttenuation* FootstepAttenuation;
-
+	UPROPERTY(VisibleAnywhere, Category="Audio")
+	TObjectPtr<UAudioComponent> HeartbeatAudioComp;
+	
 public:
 	UFUNCTION()
 	void PlayFootstepSound();
