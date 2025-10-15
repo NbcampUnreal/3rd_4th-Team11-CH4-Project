@@ -55,6 +55,9 @@ AEHSurvivorCharacter::AEHSurvivorCharacter()
 
 	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	CameraComp->SetupAttachment(SpringArm);
+	
+	// Item : 인벤토리 컴포넌트
+	InventoryComp = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComp"));
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -408,17 +411,14 @@ void AEHSurvivorCharacter::StartInteraction()
 				if (Door->GetIsOpenDoor()) return;
 				if (Door->GetIsRemoteDoor()) return;
 				//아이템(키) 소지 여부 확인 및 사용 로직
-				if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+				if (InventoryComp && InventoryComp->ConsumeKey())
 				{
-					if (Inv->ConsumeKey())   // 키가 있으면 true + 소모됨
-					{
-						MulticastDoorInteractMontage();
-						ServerRTryOpenDoorWithKey(Door); // 서버에서 실제 개방
-					}
-					else
-					{
-						UE_LOG(LogTemp, Warning, TEXT("열쇠가 없어 문을 열 수 없습니다."));
-					}
+					MulticastDoorInteractMontage();
+					ServerRTryOpenDoorWithKey(Door); // 서버에서 실제 개방
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("열쇠가 없어 문을 열 수 없습니다."));
 				}
 				return;
 				
@@ -688,7 +688,7 @@ void AEHSurvivorCharacter::Debug_PrintHealth() const
 }
 void AEHSurvivorCharacter::UseSlot0()
 {
-	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+	if (InventoryComp)
 	{
 		ServerUseConsumableSlot(0); // 1번 키 → 슬롯 0
 	}
@@ -696,7 +696,7 @@ void AEHSurvivorCharacter::UseSlot0()
 
 void AEHSurvivorCharacter::UseSlot1()
 {
-	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+	if (InventoryComp)
 	{
 		ServerUseConsumableSlot(1); // 2번 키 → 슬롯 1
 	}
@@ -710,9 +710,9 @@ void AEHSurvivorCharacter::ServerRTryOpenDoorWithKey_Implementation(AMultiplayDo
 }
 void AEHSurvivorCharacter::ServerUseConsumableSlot_Implementation(int32 SlotIndex)
 {
-	if (UInventoryComponent* Inv = FindComponentByClass<UInventoryComponent>())
+	if (InventoryComp)
 	{
-		const bool bOk = Inv->UseItemBySlot(SlotIndex);
+		const bool bOk = InventoryComp->UseItemBySlot(SlotIndex);
 		if (!bOk)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("[Use] slot %d 사용 실패(빈 슬롯/조건 불만족)"), SlotIndex);
