@@ -16,4 +16,9 @@ void AWaitingPlayerController::BeginPlay()
 			WaitingLayoutWidget->AddToViewport();
 		}
 	}
+
+	FInputModeGameAndUI InputMode;
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	SetInputMode(InputMode);
+	SetShowMouseCursor(true);
 }

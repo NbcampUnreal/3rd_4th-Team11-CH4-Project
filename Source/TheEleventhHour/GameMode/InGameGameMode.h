@@ -43,12 +43,18 @@ public:
 	/** 🔹 발전기 완성 시 호출 */
 	void CompletedRepair();
 
+	UFUNCTION(BlueprintCallable, Category="Game|Survivor")
+	void OnSurvivorKilled(class AEHSurvivorCharacter* Victim);
+
 	/** ✅ 생존자 감옥 이동 (감옥 매니저 통해 처리) */
 	UFUNCTION(BlueprintCallable, Category="GameRule")
 	void SendToPrison(AInGamePlayerState* CapturedPlayer);
 
 	UFUNCTION(BlueprintCallable, Category="Game|Generators")
 	void OnEscapeDoorOpened();
+
+	UFUNCTION()
+	void LogAllPlayerStates();
 
 protected:
 	virtual void BeginPlay() override;
@@ -81,7 +87,7 @@ protected:
 
 	// ---- 발전기 ----
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Game|Generators")
-	int32 TotalGeneratorCount = 5;  // 전체 발전기 수 (기본값 5)
+	int32 TotalGeneratorCount = 1;  // 전체 발전기 수 (기본값 5)
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="Game|Generators")
 	int32 RemainingGeneratorCount = 0;  // 현재 남은 발전기 수

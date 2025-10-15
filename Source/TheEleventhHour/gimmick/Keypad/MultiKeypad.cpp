@@ -114,7 +114,10 @@ void AMultiKeypad::ProgressKeypad()
 
 void AMultiKeypad::CompleteProgress()
 {
-	InteractSurvivor->ServerRPCCancelInteract();
+	if (IsValid(InteractSurvivor))
+	{
+		InteractSurvivor->ServerRPCCancelInteract();
+	}
 	UGameplayStatics::PlaySoundAtLocation(this,CompleteSound,GetActorLocation());
 	GetWorldTimerManager().ClearTimer(ProgressTimerHandle);
 	bIsCompleted = true;

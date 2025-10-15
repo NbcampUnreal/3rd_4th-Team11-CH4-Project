@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Item/Chest/Chest.h"
 #include "Survivor/Character/AttributeComponent.h"
 #include "EHSurvivorCharacter.generated.h"
 
@@ -69,6 +70,7 @@ protected:
 
 	UFUNCTION()
 	void DeleteHitMark();
+	void BreakChest(AChest* Chest);
 	UPROPERTY()
 	FTimerHandle DeleteHitMarkHandle;
 	
