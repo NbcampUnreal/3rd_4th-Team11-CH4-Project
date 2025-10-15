@@ -44,6 +44,23 @@ void AInGamePlayerController::BeginPlay()
 	SetInputMode(FInputModeGameOnly());
 }
 
+void AInGamePlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+
+	// 새로 빙의한 Pawn이 생존자인지 확인합니다.
+	if (AEHSurvivorCharacter* Survivor = Cast<AEHSurvivorCharacter>(InPawn))
+	{
+		// 생존자라면 InventoryComponent를 찾아서 변수에 캐싱(저장)해 둡니다.
+		CachedInventoryComponent = Survivor->FindComponentByClass<UInventoryComponent>();
+	}
+	else
+	{
+		// 만약 다른 종류의 Pawn(살인마 등)에 빙의했다면 캐시된 값을 비웁니다.
+		CachedInventoryComponent = nullptr;
+	}
+}
+
 void AInGamePlayerController::Client_UpdateKillerHUD_Implementation(bool bCanUseSkill, float RemainingCooldown, float TotalCooldown, float SkillDuration, float CurrentSprint, float MaxSprint)
 {
 	if (InGameHUDInstance)
@@ -303,4 +320,10 @@ void AInGamePlayerController::Client_RelayMurdererRawDataToHUD_Implementation(
 		// 이 함수는 알아서 SkillWidget의 UpdateSkill/UpdateSprint를 호출할 겁니다.
 		InGameHUDInstance->UpdateMurdererWidgets(bCanUseSkill, CurrentCooldown, MaxCooldown, SkillDuration, CurrentSprint, MaxSprint);
 	}
+}
+
+UInventoryComponent* AInGamePlayerController::GetInventoryComponent() const
+{
+	// OnPossess에서 캐시해 둔 인벤토리 컴포넌트를 반환
+	return CachedInventoryComponent;
 }

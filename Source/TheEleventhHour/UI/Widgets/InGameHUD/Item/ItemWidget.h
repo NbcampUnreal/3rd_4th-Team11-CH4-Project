@@ -1,31 +1,61 @@
-#pragma once
+ï»¿#pragma once
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Item/ItemTypes/ItemTypes.h"
 #include "ItemWidget.generated.h"
 
 class UItemSlotWidget;
 class UInventoryComponent;
+class UImage;
+class UTexture2D;
+class UTextBlock;
 
 UCLASS()
 class THEELEVENTHHOUR_API UItemWidget : public UUserWidget
 {
 	GENERATED_BODY()
+
+public: 
+	void InitializeInventory();
 	
+	virtual void NativeConstruct() override;
+
 protected:
-    virtual void NativeConstruct() override;
+	UFUNCTION()
+	void OnInventoryUpdated();
 
-    void InitializeInventory();
+	void UpdateKeyUI(bool bHasKey);
 
-    UPROPERTY(meta = (BindWidget)) TObjectPtr<UItemSlotWidget> ItemSlot_0;
-    UPROPERTY(meta = (BindWidget)) TObjectPtr<UItemSlotWidget> ItemSlot_1;
+	UPROPERTY(meta = (BindWidget)) TObjectPtr<UItemSlotWidget> ItemSlot_0;
+	UPROPERTY(meta = (BindWidget)) TObjectPtr<UItemSlotWidget> ItemSlot_1;
 
-    // ÀÎº¥Åä¸® ÄÄÆ÷³ÍÆ®ÀÇ ½ÅÈ£¸¦ ¹ŞÀ» ÇÔ¼ö
-    UFUNCTION()
-    void OnInventoryUpdated();
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UImage> Image_KeyIcon;
 
-    // ÀÎº¥Åä¸® ÄÄÆ÷³ÍÆ®ÀÇ ÂüÁ¶¸¦ ÀúÀåÇÒ º¯¼ö
-    UPROPERTY()
-    TObjectPtr<UInventoryComponent> LinkedInventory;
+	// --- í‚¤ ì•„ì´ì½˜ìš© í…ìŠ¤ì²˜ 2ì¢…(ì—ë””í„°ì—ì„œ ì„¸íŒ…) ---
+	UPROPERTY(EditAnywhere, Category = "UI|Key")
+	TObjectPtr<UTexture2D> KeyIcon_Empty;
 
+	UPROPERTY(EditAnywhere, Category = "UI|Key")
+	TObjectPtr<UTexture2D> KeyIcon_Owned;
+
+	UPROPERTY(meta = (BindWidget)) TObjectPtr<UTextBlock> Text_KeyStatus;
+
+	// ê°„ë‹¨ ë¬¸êµ¬
+	UPROPERTY(EditAnywhere, Category = "UI|Key")
+	FText KeyText_Owned = FText::FromString(TEXT("Owned"));
+
+	UPROPERTY(EditAnywhere, Category = "UI|Key")
+	FText KeyText_Empty = FText::FromString(TEXT("Empty"));
+
+	// âœ… ìƒ‰ìƒë„ ì·¨í–¥ëŒ€ë¡œ
+	UPROPERTY(EditAnywhere, Category = "UI|Key")
+	FLinearColor KeyTextColor_Owned = FLinearColor(1.0f, 0.f, 0.f, 1.f); 
+
+	UPROPERTY(EditAnywhere, Category = "UI|Key")
+	FLinearColor KeyTextColor_Empty = FLinearColor(1.0f, 1.0f, 1.0f, 1.f); // íšŒìƒ‰
+
+	UPROPERTY()
+	TObjectPtr<UInventoryComponent> LinkedInventory;
 };

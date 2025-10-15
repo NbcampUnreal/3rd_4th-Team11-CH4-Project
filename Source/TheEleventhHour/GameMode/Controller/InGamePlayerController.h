@@ -12,6 +12,7 @@ class UResultScreenWidget;
 class AEHSurvivorCharacter;
 class AMurdererCharacter;
 class AEHSurvivorCharacter;
+class UInventoryComponent;
 
 UCLASS()
 class THEELEVENTHHOUR_API AInGamePlayerController : public APlayerController
@@ -25,8 +26,13 @@ public:
 	virtual void SetupInputComponent() override;
 	virtual void Tick(float DeltaSeconds) override;
 
+	virtual void OnPossess(APawn* InPawn) override;
+
 	UFUNCTION(Client, Reliable)
 	void Client_UpdateKillerHUD(bool bCanUseSkill, float RemainingCooldown, float TotalCooldown, float SkillDuration, float CurrentSprint, float MaxSprint);
+
+	UFUNCTION(BlueprintCallable, Category = "PlayerController | UI")
+	UInventoryComponent* GetInventoryComponent() const;
 
 	/** ✅ 클라이언트 → 서버 : 로딩 완료 알림 */
 	UFUNCTION(Server, Reliable)
@@ -81,6 +87,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category="UI")
 	TSubclassOf<UResultScreenWidget> ResultScreenWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UInventoryComponent> CachedInventoryComponent;
 
 	UPROPERTY()
 	bool bHasNotifiedLoaded;

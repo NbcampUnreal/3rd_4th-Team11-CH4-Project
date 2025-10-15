@@ -126,6 +126,11 @@ bool UInventoryComponent::UseItemBySlot(int32 SlotIndex)
 void UInventoryComponent::OnRep_ConsumableSlots()
 {
     OnInventoryUpdated.Broadcast();
+
+    if (GEngine)
+    {
+        //GEngine->AddOnScreenDebugMessage(-1, 20.f, FColor::Cyan, TEXT("CLIENT: OnRep_ConsumableSlots() called. Broadcasting UI update..."));
+    }
 }
 void UInventoryComponent::OnRep_HasKey()
 {

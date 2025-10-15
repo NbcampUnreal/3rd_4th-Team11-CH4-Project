@@ -3,6 +3,7 @@
 #include "GameMode/PlayerState/InGamePlayerState.h"
 #include "Kismet/GameplayStatics.h"
 
+#include "GameMode/Controller/InGamePlayerController.h"
 #include "UI/Widgets/InGameHUD/Status/MatchTimerWidget.h"
 #include "UI/Widgets/InGameHUD/Status/MatchStatusWidget.h"
 #include "UI/Widgets/InGameHUD/Status/TeamStatusWidget.h"
@@ -15,6 +16,7 @@ void UInGameHUDWidget::NativeConstruct()
 
 	CurrentGameState = GetWorld()->GetGameState<AInGameGameState>();
 	CurrentPlayerState = GetOwningPlayerState<AInGamePlayerState>();
+
 }
 
 void UInGameHUDWidget::SetRoleSpecificVisibility(bool bIsKiller)
@@ -29,7 +31,11 @@ void UInGameHUDWidget::SetRoleSpecificVisibility(bool bIsKiller)
 	{
 		// 생존자라면, Skill 위젯은 숨기고 Item 위젯은 보여줍니다.
 		if (Skill) Skill->SetVisibility(ESlateVisibility::Collapsed);
-		if (Item) Item->SetVisibility(ESlateVisibility::Visible);
+		if (Item)
+		{
+			Item->SetVisibility(ESlateVisibility::Visible);
+			Item->InitializeInventory();
+		}
 	}
 }
 
@@ -82,19 +88,6 @@ void UInGameHUDWidget::UpdateHUD(int32 RemainingTime, int32 GeneratorsRepaired, 
 			TeamStatus->UpdateTeammates(InGamePlayerStates);
 		}
 	}
-
-	// --- 아이템 및 스킬 위젯 업데이트 ---
-
-	if (Item)
-	{
-		// Item->UpdateItem();
-	}
-
-	if (Skill) 
-	{
-		// SkillWidget->UpdateSkill();
-	}
-
 }
 
 void UInGameHUDWidget::UpdateMurdererWidgets(bool bCanUseSkill, float RemainingCooldown, float TotalCooldown, float SkillDuration, float CurrentSprint, float MaxSprint)
