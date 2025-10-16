@@ -105,9 +105,11 @@
 
 ---
 ## 기술 명세
-[기술 명세서](https://docs.google.com/spreadsheets/d/1X9ahm_G0EAVkqSXg1_4ljJKRXitkZee3n3AqvlMyyu0/edit?gid=0#gid=0)
+* [기술 명세서](https://docs.google.com/spreadsheets/d/1X9ahm_G0EAVkqSXg1_4ljJKRXitkZee3n3AqvlMyyu0/edit?gid=0#gid=0)
 
-**파트별 클래스 설계**
+* [개발 문서 정리](https://www.notion.so/teamsparta/2552dc3ef514802a9782d0663fd84a44)
+
+## 파트별 클래스 설계
 
 | 이름   | 파트                     | 링크                         |
 |-------|--------------------------|------------------------------|
