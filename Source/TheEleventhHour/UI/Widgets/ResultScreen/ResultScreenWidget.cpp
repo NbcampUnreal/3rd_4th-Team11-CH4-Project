@@ -52,6 +52,10 @@ void UResultScreenWidget::PopulateResults(const TArray<AInGamePlayerState*>& All
                 TextBlock_PlayerMatchResult->SetText(FText::FromString(TEXT("Murdered"))); 
                 TextBlock_PlayerMatchResult->SetColorAndOpacity(FSlateColor(FLinearColor::Red));
                 break;
+            case ESurvivorState::Captured:
+                TextBlock_PlayerMatchResult->SetText(FText::FromString(TEXT("Murdered")));
+                TextBlock_PlayerMatchResult->SetColorAndOpacity(FSlateColor(FLinearColor::Red));
+                break;
             default: 
                 TextBlock_PlayerMatchResult->SetText(FText::FromString(TEXT("Survived")));
                 TextBlock_PlayerMatchResult->SetColorAndOpacity(FSlateColor(FLinearColor::White));
