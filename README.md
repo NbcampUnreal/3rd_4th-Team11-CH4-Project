@@ -22,12 +22,11 @@
   - 기본 구성: UE5 전용서버 바이너리 실행 → EC2 보안 그룹에서 게임 포트/Query 포트 허용
 
 ---
-
 <h2>시연 영상</h2>
 
 <div align="center">
-  <a href="https://www.youtube.com/watch?v=TEbF3lA0oSU" target="_blank">
-    <img src="https://img.youtube.com/vi/TEbF3lA0oSU/maxresdefault.jpg"
+  <a href="https://www.youtube.com/watch?v=vMsT3tIzBTs" target="_blank">
+    <img src="https://img.youtube.com/vi/vMsT3tIzBTs/sddefault.jpg"
          alt="The Eleventh Hour – Demo Video"
          width="720" />
   </a>
